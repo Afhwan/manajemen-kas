@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Kas Kelas — Manajemen Keuangan Kelas
 
-## Getting Started
+Aplikasi web untuk mengelola keuangan kelas: iuran bulanan, pencatatan pemasukan/pengeluaran, dan laporan.
 
-First, run the development server:
+## Tech Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+| Komponen | Teknologi |
+|---|---|
+| Frontend | Next.js 16 (App Router) + TypeScript + Tailwind CSS |
+| Database | Supabase (PostgreSQL) |
+| Auth | Supabase Auth (email/password) |
+| Storage gambar | Cloudinary (free plan) |
+| Deployment | Vercel |
+
+## Fitur Utama
+
+- **Dashboard** — saldo kas, ringkasan bulan ini, grafik 6 bulan, iuran progress
+- **Anggota** — CRUD siswa, toggle aktif/nonaktif
+- **Transaksi** — catat pemasukan/pengeluaran, upload bukti pembayaran ke Cloudinary
+- **Iuran** — tandai lunas/belum per siswa per bulan, batch tandai lunas
+- **Laporan** — rekap per bulan, per kategori, per anggota, rekap tahunan, export CSV
+- **Pengaturan** — ubah nama kelas, tahun ajaran, nominal iuran, kelola kategori
+
+## Arsitektur Penyimpanan Gambar
+
+Bukti pembayaran diunggah langsung dari browser ke Cloudinary (unsigned upload preset), bukan melalui server. Ini menghemat bandwidth Vercel dan kapasitas Supabase Storage.
+
+- Kompresi gambar dilakukan di sisi browser sebelum upload (maks 300 KB, max 1000px).
+- URL gambar disimpan di kolom `transactions.proof_url`.
+
+## Konfigurasi
+
+1. **Clone** repositori ini
+2. Salin `.env.local.example` → `.env.local`, isi nilai-nilai berikut:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your-cloud-name
+NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=your-unsigned-preset
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+3. Buat proyek di [Supabase](https://supabase.com) dan [Cloudinary](https://cloudinary.com).
+4. Di Supabase SQL Editor, jalankan file `supabase/schema.sql`.
+5. Jalankan `npm run dev` dan buka `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Cara Membuat Akun Admin
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Buka Supabase Dashboard → Authentication → Users → Add user. Masukkan email dan password. Login dengan akun tersebut untuk mengakses aplikasi.
 
-## Learn More
+## Struktur Proyek
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+├── app/
+│   ├── login/page.tsx          # Halaman login
+│   ├── (app)/                   # Grup route (terproteksi)
+│   │   ├── layout.tsx          # Sidebar + topbar shell
+│   │   ├── dashboard/page.tsx
+│   │   ├── members/page.tsx
+│   │   ├── transactions/page.tsx
+│   │   ├── iuran/page.tsx
+│   │   ├── reports/page.tsx
+│   │   └── settings/page.tsx
+│   ├── actions/                # Server actions
+│   │   ├── auth.ts
+│   │   ├── members.ts
+│   │   ├── transactions.ts
+│   │   ├── iurans.ts
+│   │   ├── settings.ts
+│   ├── lib/
+│   │   ├── supabase/
+│   │   │   ├── client.ts       # Browser client (client components)
+│   │   │   ├── server.ts       # Server client (server actions)
+│   │   │   └── proxy.ts        # Logic untuk proxy.ts
+│   │   ├── queries.ts          # Helper fetch data (client-side)
+│   │   ├── cloudinary.ts       # Upload + kompresi gambar
+│   │   ├── types.ts            # Tipe antarmuka tabel
+│   │   └── utils.ts            # Format uang, tanggal, dll.
+│   ├── components/ui/          # Komponen UI minimal
+│   ├── proxy.ts                # Middleware (Next 16 → proxy)
+├── supabase/
+│   └── schema.sql              # Skema database + seed
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deployment ke Vercel
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Push repo ke GitHub.
+2. Di [Vercel](https://vercel.com), buat proyek baru dan impor repo.
+3. Tambahkan environment variables di dashboard Vercel (sama dengan `.env.local`).
+4. Deploy.
 
-## Deploy on Vercel
+## Lisensi
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Proyek ini dibuat untuk keperluan pendidikan.
