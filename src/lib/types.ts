@@ -1,6 +1,15 @@
 export type CategoryType = 'income' | 'expense'
 export type TransactionType = 'income' | 'expense'
 export type IuranStatus = 'paid' | 'unpaid'
+export type UserRole = 'bendahara' | 'walikelas'
+
+export interface AppUser {
+  id: string
+  username: string
+  email: string
+  role: UserRole
+  created_at: string
+}
 
 export interface ClassInfo {
   id: number

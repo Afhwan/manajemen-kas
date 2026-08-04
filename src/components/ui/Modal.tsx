@@ -3,6 +3,12 @@
 import { useEffect, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
+const WIDTHS: Record<string, string> = {
+  'max-w-md': 'sm:max-w-md',
+  'max-w-lg': 'sm:max-w-lg',
+  'max-w-xl': 'sm:max-w-xl',
+}
+
 export function Modal({
   open,
   onClose,
@@ -32,12 +38,12 @@ export function Modal({
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
         className={cn(
-          'relative max-h-[90vh] w-full overflow-y-auto rounded-2xl bg-white shadow-xl',
-          maxWidth
+          'sheet-up relative max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-xl sm:rounded-2xl',
+          WIDTHS[maxWidth] ?? 'sm:max-w-lg'
         )}
       >
         <div className="sticky top-0 flex items-center justify-between border-b border-zinc-200 bg-white px-5 py-4">
@@ -52,7 +58,7 @@ export function Modal({
             </svg>
           </button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="p-5 pb-8 sm:pb-5">{children}</div>
       </div>
     </div>
   )

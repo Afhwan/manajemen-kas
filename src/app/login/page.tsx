@@ -45,13 +45,13 @@ export default function LoginPage() {
           onSubmit={handleSubmit}
           className="space-y-4 rounded-2xl bg-white p-6 shadow-xl"
         >
-          <Field label="Email">
+          <Field label="Username">
             <Input
-              type="email"
-              name="email"
+              type="text"
+              name="username"
               required
-              autoComplete="email"
-              placeholder="bendahara@sekolah.sch.id"
+              autoComplete="username"
+              placeholder="bendahara"
             />
           </Field>
           <Field label="Password">
@@ -75,7 +75,7 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-4 text-center text-xs text-white/70">
-          Login khusus bendahara/admin yang udah didaftarin di Supabase Auth.
+          Login pakai username yang udah didaftarin di Supabase Auth.
         </p>
       </div>
     </div>

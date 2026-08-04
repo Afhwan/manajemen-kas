@@ -184,7 +184,53 @@ export default function TransactionsPage() {
           />
         ) : (
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            <ul className="divide-y divide-zinc-100 md:hidden">
+              {filtered.map((t) => (
+                <li key={t.id} className="px-5 py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-zinc-800">{t.description}</p>
+                      <p className="mt-0.5 text-xs text-zinc-500">
+                        {formatDate(t.transaction_date)} · {t.categories?.name ?? 'Tanpa kategori'}
+                      </p>
+                      <div className="mt-2 flex items-center gap-2">
+                        {t.type === 'income' ? (
+                          <Badge variant="green">Pemasukan</Badge>
+                        ) : (
+                          <Badge variant="red">Pengeluaran</Badge>
+                        )}
+                        {t.proof_url ? (
+                          <a
+                            href={t.proof_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs font-medium text-brand-600 hover:underline"
+                          >
+                            Lihat bukti
+                          </a>
+                        ) : null}
+                      </div>
+                    </div>
+                    <span
+                      className={`shrink-0 text-sm font-semibold ${
+                        t.type === 'income' ? 'text-emerald-600' : 'text-red-600'
+                      }`}
+                    >
+                      {t.type === 'income' ? '+' : '−'} {formatIDR(t.amount)}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => openEdit(t)}>
+                      Edit
+                    </Button>
+                    <Button variant="ghost" size="sm" className="flex-1" onClick={() => setDeleteTarget(t)}>
+                      Hapus
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-400">

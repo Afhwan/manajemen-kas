@@ -4,18 +4,26 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
 export async function login(formData: FormData) {
-  const email = String(formData.get('email') ?? '').trim()
+  const username = String(formData.get('username') ?? '').trim().toLowerCase()
   const password = String(formData.get('password') ?? '')
 
-  if (!email || !password) {
-    return { error: 'Email sama password wajib diisi dong' }
+  if (!username || !password) {
+    return { error: 'Username sama password wajib diisi dong' }
   }
 
   const supabase = await createClient()
+  const { data: email } = await supabase.rpc('get_email_by_username', {
+    p_username: username,
+  })
+
+  if (!email) {
+    return { error: 'Username atau password-nya kurang tepat nih' }
+  }
+
   const { error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
-    return { error: 'Email atau password-nya kurang tepat nih' }
+    return { error: 'Username atau password-nya kurang tepat nih' }
   }
 
   redirect('/dashboard')

@@ -68,8 +68,40 @@ create index if not exists idx_iurans_member on public.iurans (member_id);
 -- Selalu dihitung: SUM(income) - SUM(expense) agar konsisten.
 
 -- ============================================================
+-- AKUN PENGGUNA (username login + role)
+-- Auth tetap Supabase (email/password); tabel ini memetakan
+-- username -> email + role (bendahara = edit, walikelas = lihat).
+-- ============================================================
+create table if not exists public.app_users (
+  id         uuid primary key references auth.users(id) on delete cascade,
+  username   text not null unique check (username = lower(username)),
+  email      text not null unique,
+  role       text not null default 'bendahara' check (role in ('bendahara','walikelas')),
+  created_at timestamptz not null default now()
+);
+
+alter table public.app_users enable row level security;
+
+drop policy if exists "app_users read own" on public.app_users;
+create policy "app_users read own" on public.app_users
+  for select to authenticated using (auth.uid() = id);
+
+-- Fungsi lookup email oleh username (aman, bypass RLS, tidak expose daftar email)
+create or replace function public.get_email_by_username(p_username text)
+returns text
+language sql
+security definer
+stable
+as $$
+  select email from public.app_users where username = lower(p_username)
+$$;
+
+revoke all on function public.get_email_by_username(text) from public;
+grant execute on function public.get_email_by_username(text) to anon, authenticated;
+
+-- ============================================================
 -- ROW LEVEL SECURITY
--- Hanya pengguna yang sudah login (authenticated) yang punya akses.
+-- bendahara: akses penuh; walikelas: hanya baca (view-only).
 -- ============================================================
 alter table public.class_info   enable row level security;
 alter table public.members      enable row level security;
@@ -77,11 +109,60 @@ alter table public.categories   enable row level security;
 alter table public.transactions enable row level security;
 alter table public.iurans       enable row level security;
 
-create policy "auth full access class_info"   on public.class_info   for all to authenticated using (true) with check (true);
-create policy "auth full access members"      on public.members      for all to authenticated using (true) with check (true);
-create policy "auth full access categories"   on public.categories   for all to authenticated using (true) with check (true);
-create policy "auth full access transactions" on public.transactions for all to authenticated using (true) with check (true);
-create policy "auth full access iurans"       on public.iurans       for all to authenticated using (true) with check (true);
+-- class_info
+drop policy if exists "bendahara write class_info" on public.class_info;
+drop policy if exists "walikelas read class_info" on public.class_info;
+create policy "bendahara write class_info" on public.class_info
+  for all to authenticated
+  using (exists (select 1 from public.app_users au where au.id = auth.uid() and au.role = 'bendahara'))
+  with check (exists (select 1 from public.app_users au where au.id = auth.uid() and au.role = 'bendahara'));
+create policy "walikelas read class_info" on public.class_info
+  for select to authenticated
+  using (exists (select 1 from public.app_users au where au.id = auth.uid() and au.role = 'walikelas'));
+
+-- members
+drop policy if exists "bendahara write members" on public.members;
+drop policy if exists "walikelas read members" on public.members;
+create policy "bendahara write members" on public.members
+  for all to authenticated
+  using (exists (select 1 from public.app_users au where au.id = auth.uid() and au.role = 'bendahara'))
+  with check (exists (select 1 from public.app_users au where au.id = auth.uid() and au.role = 'bendahara'));
+create policy "walikelas read members" on public.members
+  for select to authenticated
+  using (exists (select 1 from public.app_users au where au.id = auth.uid() and au.role = 'walikelas'));
+
+-- categories
+drop policy if exists "bendahara write categories" on public.categories;
+drop policy if exists "walikelas read categories" on public.categories;
+create policy "bendahara write categories" on public.categories
+  for all to authenticated
+  using (exists (select 1 from public.app_users au where au.id = auth.uid() and au.role = 'bendahara'))
+  with check (exists (select 1 from public.app_users au where au.id = auth.uid() and au.role = 'bendahara'));
+create policy "walikelas read categories" on public.categories
+  for select to authenticated
+  using (exists (select 1 from public.app_users au where au.id = auth.uid() and au.role = 'walikelas'));
+
+-- transactions
+drop policy if exists "bendahara write transactions" on public.transactions;
+drop policy if exists "walikelas read transactions" on public.transactions;
+create policy "bendahara write transactions" on public.transactions
+  for all to authenticated
+  using (exists (select 1 from public.app_users au where au.id = auth.uid() and au.role = 'bendahara'))
+  with check (exists (select 1 from public.app_users au where au.id = auth.uid() and au.role = 'bendahara'));
+create policy "walikelas read transactions" on public.transactions
+  for select to authenticated
+  using (exists (select 1 from public.app_users au where au.id = auth.uid() and au.role = 'walikelas'));
+
+-- iurans
+drop policy if exists "bendahara write iurans" on public.iurans;
+drop policy if exists "walikelas read iurans" on public.iurans;
+create policy "bendahara write iurans" on public.iurans
+  for all to authenticated
+  using (exists (select 1 from public.app_users au where au.id = auth.uid() and au.role = 'bendahara'))
+  with check (exists (select 1 from public.app_users au where au.id = auth.uid() and au.role = 'bendahara'));
+create policy "walikelas read iurans" on public.iurans
+  for select to authenticated
+  using (exists (select 1 from public.app_users au where au.id = auth.uid() and au.role = 'walikelas'));
 
 -- ============================================================
 -- SEED DATA
@@ -121,3 +202,16 @@ on conflict (id) do nothing;
 --   ('Hana Safitri',   '008'),
 --   ('Irfan Maulana',  '009'),
 --   ('Joko Susilo',    '010');
+
+-- ============================================================
+-- DAFTARKAN AKUN (jalankan MANUAL setelah membuat user di
+-- Supabase Auth -> Authentication -> Users -> Add user)
+--
+-- insert into public.app_users (id, username, email, role)
+-- select id, 'bendahara', email, 'bendahara' from auth.users where email = 'email-bendahara@contoh.com';
+--
+-- insert into public.app_users (id, username, email, role)
+-- select id, 'walikelas', email, 'walikelas' from auth.users where email = 'email-walikelas@contoh.com';
+--
+-- Catatan: username wajib huruf kecil.
+-- ============================================================

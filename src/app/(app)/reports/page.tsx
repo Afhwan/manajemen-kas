@@ -175,7 +175,25 @@ export default function ReportsPage() {
             <CardContent><p className="py-4 text-center text-sm text-zinc-400">Belum ada data iuran.</p></CardContent>
           ) : (
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              <ul className="divide-y divide-zinc-100 md:hidden">
+                {iuranByMember.map(([id, d]) => (
+                  <li key={id} className="flex items-center justify-between gap-3 px-5 py-3.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-zinc-800">{d.name}</p>
+                      <p className="text-xs text-zinc-500">
+                        Lunas <span className="font-semibold text-emerald-600">{d.paid}</span> dari{' '}
+                        {d.total}
+                      </p>
+                    </div>
+                    {d.total > 0 ? (
+                      <Badge variant="green">{Math.round((d.paid / d.total) * 100)}%</Badge>
+                    ) : (
+                      <Badge variant="zinc">—</Badge>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-400">

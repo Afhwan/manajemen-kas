@@ -120,7 +120,32 @@ export default function MembersPage() {
           />
         ) : (
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            <ul className="divide-y divide-zinc-100 md:hidden">
+              {filtered.map((m) => (
+                <li key={m.id} className="flex items-center justify-between gap-3 px-5 py-4">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-zinc-800">{m.name}</p>
+                    <p className="text-xs text-zinc-500">{m.nis ?? '—'}</p>
+                    <div className="mt-1">
+                      {m.is_active ? (
+                        <Badge variant="green">Aktif</Badge>
+                      ) : (
+                        <Badge variant="zinc">Nonaktif</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-stretch gap-2">
+                    <Button variant="outline" size="sm" onClick={() => openEdit(m)}>
+                      Edit
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleToggleActive(m)}>
+                      {m.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-400">

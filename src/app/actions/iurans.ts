@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { requireBendahara } from '@/app/actions/guard'
 
 export async function markIuranPaid(
   memberId: string,
@@ -9,6 +10,9 @@ export async function markIuranPaid(
   amount: number,
   transactionId?: string | null
 ) {
+  const guard = await requireBendahara()
+  if (guard) return guard
+
   const supabase = await createClient()
   const { data: existing } = await supabase
     .from('iurans')
@@ -38,6 +42,9 @@ export async function markIuranPaid(
 }
 
 export async function markIuranUnpaid(memberId: string, period: string) {
+  const guard = await requireBendahara()
+  if (guard) return guard
+
   const supabase = await createClient()
   const { data: existing } = await supabase
     .from('iurans')
@@ -70,6 +77,9 @@ export async function batchMarkPaid(
   period: string,
   amount: number
 ) {
+  const guard = await requireBendahara()
+  if (guard) return guard
+
   const results = await Promise.all(
     memberIds.map((id) =>
       markIuranPaid(id, period, amount).catch((e) => ({ error: e.message }))

@@ -2,8 +2,12 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { requireBendahara } from '@/app/actions/guard'
 
 export async function updateClassInfo(formData: FormData) {
+  const guard = await requireBendahara()
+  if (guard) return guard
+
   const supabase = await createClient()
   const class_name = String(formData.get('class_name') ?? '').trim()
   const academic_year = String(formData.get('academic_year') ?? '').trim()
@@ -23,6 +27,9 @@ export async function updateClassInfo(formData: FormData) {
 }
 
 export async function addCategory(formData: FormData) {
+  const guard = await requireBendahara()
+  if (guard) return guard
+
   const supabase = await createClient()
   const name = String(formData.get('name') ?? '').trim()
   const type = String(formData.get('type') ?? 'income')
@@ -36,6 +43,9 @@ export async function addCategory(formData: FormData) {
 }
 
 export async function toggleCategoryActive(id: string, isActive: boolean) {
+  const guard = await requireBendahara()
+  if (guard) return guard
+
   const supabase = await createClient()
   const { error } = await supabase
     .from('categories')
@@ -46,6 +56,9 @@ export async function toggleCategoryActive(id: string, isActive: boolean) {
 }
 
 export async function deleteCategory(id: string) {
+  const guard = await requireBendahara()
+  if (guard) return guard
+
   const supabase = await createClient()
   const { error } = await supabase.from('categories').delete().eq('id', id)
   if (error) return { error: error.message }

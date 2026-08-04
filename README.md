@@ -1,6 +1,6 @@
 # Kas Kelas — Manajemen Keuangan Kelas
 
-Aplikasi web untuk mengelola keuangan kelas: iuran bulanan, pencatatan pemasukan/pengeluaran, dan laporan.
+Aplikasi web untuk mengelola keuangan kelas: iuran bulanan, pencatatan pemasukan/pengeluaran, dan laporan. Desain **mobile-first** dengan akses dua peran: **bendahara** (edit) dan **walikelas** (hanya melihat).
 
 ## Tech Stack
 
@@ -8,18 +8,21 @@ Aplikasi web untuk mengelola keuangan kelas: iuran bulanan, pencatatan pemasukan
 |---|---|
 | Frontend | Next.js 16 (App Router) + TypeScript + Tailwind CSS |
 | Database | Supabase (PostgreSQL) |
-| Auth | Supabase Auth (email/password) |
+| Auth | Supabase Auth (email/password) + login username |
 | Storage gambar | Cloudinary (free plan) |
 | Deployment | Vercel |
 
 ## Fitur Utama
 
+- **Login username + password** — mapping username → email disimpan di tabel `app_users`
 - **Dashboard** — saldo kas, ringkasan bulan ini, grafik 6 bulan, iuran progress
 - **Anggota** — CRUD siswa, toggle aktif/nonaktif
 - **Transaksi** — catat pemasukan/pengeluaran, upload bukti pembayaran ke Cloudinary
 - **Iuran** — tandai lunas/belum per siswa per bulan, batch tandai lunas
 - **Laporan** — rekap per bulan, per kategori, per anggota, rekap tahunan, export CSV
 - **Pengaturan** — ubah nama kelas, tahun ajaran, nominal iuran, kelola kategori
+- **Peran walikelas** — akun view-only, hanya melihat Dashboard + Laporan (tanpa tombol edit; aksi di-server juga ditolak)
+- **Mobile-first** — bottom nav di ponsel, tabel jadi kartu di layar kecil, modal jadi bottom sheet
 
 ## Arsitektur Penyimpanan Gambar
 
@@ -42,11 +45,27 @@ NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=your-unsigned-preset
 
 3. Buat proyek di [Supabase](https://supabase.com) dan [Cloudinary](https://cloudinary.com).
 4. Di Supabase SQL Editor, jalankan file `supabase/schema.sql`.
-5. Jalankan `npm run dev` dan buka `http://localhost:3000`.
+5. Jika proyek Supabase **sudah pernah** memakai schema versi lama, jalankan juga `supabase/migration-username-role.sql` (mengganti policy RLS dan menambah tabel `app_users`).
+6. Jalankan `npm run dev` dan buka `http://localhost:3000`.
 
-## Cara Membuat Akun Admin
+## Cara Membuat Akun (Bendahara & Walikelas)
 
-Buka Supabase Dashboard → Authentication → Users → Add user. Masukkan email dan password. Login dengan akun tersebut untuk mengakses aplikasi.
+Login memakai **username + password**. Auth di belakangnya tetap Supabase (email/password). Langkahnya:
+
+1. Buka Supabase Dashboard → **Authentication** → **Users** → **Add user**. Buat akun (email + password) untuk **bendahara** dan **walikelas**.
+2. Buka **SQL Editor**, jalankan skrip berikut (ganti email sesuai akun yang dibuat):
+   ```sql
+   insert into public.app_users (id, username, email, role)
+   select id, 'bendahara', email, 'bendahara' from auth.users where email = 'email-bendahara@contoh.com';
+
+   insert into public.app_users (id, username, email, role)
+   select id, 'walikelas', email, 'walikelas' from auth.users where email = 'email-walikelas@contoh.com';
+   ```
+3. Login pakai username (`bendahara` / `walikelas`) + password.
+   - **Bendahara**: akses penuh (semua menu + edit).
+   - **Walikelas**: hanya Dashboard + Laporan, semua read-only. Akses langsung ke halaman edit akan diarahkan kembali ke Dashboard, dan RLS database menolak perubahan.
+
+Catatan: username harus huruf kecil (dipaksa oleh constraint `check (username = lower(username))`).
 
 ## Struktur Proyek
 
@@ -64,6 +83,7 @@ src/
 │   │   └── settings/page.tsx
 │   ├── actions/                # Server actions
 │   │   ├── auth.ts
+│   │   ├── guard.ts            # Cek role bendahara (keamanan mutation)
 │   │   ├── members.ts
 │   │   ├── transactions.ts
 │   │   ├── iurans.ts
@@ -72,15 +92,17 @@ src/
 │   │   ├── supabase/
 │   │   │   ├── client.ts       # Browser client (client components)
 │   │   │   ├── server.ts       # Server client (server actions)
-│   │   │   └── proxy.ts        # Logic untuk proxy.ts
+│   │   │   └── proxy.ts        # Auth guard + redirect role walikelas
+│   │   ├── session.ts          # Ambil username + role pemakai
 │   │   ├── queries.ts          # Helper fetch data (client-side)
 │   │   ├── cloudinary.ts       # Upload + kompresi gambar
 │   │   ├── types.ts            # Tipe antarmuka tabel
 │   │   └── utils.ts            # Format uang, tanggal, dll.
-│   ├── components/ui/          # Komponen UI minimal
+│   ├── components/ui/          # Komponen UI (termasuk BottomNav)
 │   ├── proxy.ts                # Middleware (Next 16 → proxy)
 ├── supabase/
-│   └── schema.sql              # Skema database + seed
+│   ├── schema.sql              # Skema database + seed (versi terbaru)
+│   └── migration-username-role.sql  # Migrasi username login + role
 ```
 
 ## Deployment ke Vercel

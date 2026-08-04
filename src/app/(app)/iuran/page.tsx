@@ -130,7 +130,35 @@ export default function IuranPage() {
           </CardContent>
         ) : (
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            <ul className="divide-y divide-zinc-100 md:hidden">
+              {members.map((m, idx) => {
+                const paid = isPaid(m.id)
+                return (
+                  <li key={m.id} className="px-5 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs text-zinc-400">#{idx + 1}</p>
+                        <p className="truncate text-sm font-medium text-zinc-800">{m.name}</p>
+                      </div>
+                      {paid ? (
+                        <Badge variant="green">Lunas</Badge>
+                      ) : (
+                        <Badge variant="red">Belum Bayar</Badge>
+                      )}
+                    </div>
+                    <Button
+                      variant={paid ? 'outline' : 'primary'}
+                      size="sm"
+                      className="mt-3 w-full"
+                      onClick={() => togglePaid(m.id)}
+                    >
+                      {paid ? 'Batalin' : 'Tandai Lunas'}
+                    </Button>
+                  </li>
+                )
+              })}
+            </ul>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-400">

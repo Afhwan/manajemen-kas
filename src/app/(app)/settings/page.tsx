@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
@@ -9,16 +10,25 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { PageLoader } from '@/components/ui/Spinner'
 import { useToast } from '@/components/ui/Toast'
 import { updateClassInfo, addCategory, deleteCategory, toggleCategoryActive } from '@/app/actions/settings'
+import { createClient } from '@/lib/supabase/client'
+import { getSessionUser, type SessionUser } from '@/lib/session'
+import { initials } from '@/lib/utils'
 import { fetchClassInfo, fetchCategories } from '@/lib/queries'
 import type { Category, ClassInfo } from '@/lib/types'
 
 export default function SettingsPage() {
   const { toast } = useToast()
+  const router = useRouter()
   const [info, setInfo] = useState<ClassInfo | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
+  const [user, setUser] = useState<SessionUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [catAdding, setCatAdding] = useState(false)
+
+  useEffect(() => {
+    getSessionUser().then(setUser).catch(() => setUser(null))
+  }, [])
 
   const load = useCallback(async () => {
     const [i, c] = await Promise.all([fetchClassInfo(), fetchCategories()])
@@ -146,6 +156,32 @@ export default function SettingsPage() {
               </li>
             ))}
           </ul>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader title="Akun" subtitle="Informasi login yang dipakai" />
+        <CardContent className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">
+              {user ? initials(user.username) : '?'}
+            </div>
+            <div>
+              <p className="text-sm font-medium text-zinc-800">{user?.username ?? 'Pengguna'}</p>
+              <p className="text-xs text-zinc-500">{user?.email}</p>
+            </div>
+            {user ? <Badge variant="brand">Bendahara</Badge> : null}
+          </div>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              await createClient().auth.signOut()
+              router.push('/login')
+              router.refresh()
+            }}
+          >
+            Keluar
+          </Button>
         </CardContent>
       </Card>
     </div>

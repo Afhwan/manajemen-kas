@@ -2,8 +2,12 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { requireBendahara } from '@/app/actions/guard'
 
 export async function addTransaction(formData: FormData) {
+  const guard = await requireBendahara()
+  if (guard) return guard
+
   const supabase = await createClient()
   const type = String(formData.get('type') ?? 'income')
   const categoryId = String(formData.get('category_id') ?? '') || null
@@ -37,6 +41,9 @@ export async function addTransaction(formData: FormData) {
 }
 
 export async function updateTransaction(formData: FormData) {
+  const guard = await requireBendahara()
+  if (guard) return guard
+
   const supabase = await createClient()
   const id = String(formData.get('id') ?? '')
   const type = String(formData.get('type') ?? 'income')
@@ -64,6 +71,9 @@ export async function updateTransaction(formData: FormData) {
 }
 
 export async function deleteTransaction(id: string) {
+  const guard = await requireBendahara()
+  if (guard) return guard
+
   const supabase = await createClient()
 
   const { data: tx } = await supabase.from('transactions').select('iuran_id').eq('id', id).single()
@@ -81,6 +91,9 @@ export async function uploadProof(
   id: string,
   file: File
 ): Promise<void> {
+  const guard = await requireBendahara()
+  if (guard) throw new Error(guard.error)
+
   const supabase = await createClient()
   const { compressImage, uploadProofToCloudinary } = await import('@/lib/cloudinary')
 
@@ -97,6 +110,9 @@ export async function uploadProof(
 }
 
 export async function removeProof(id: string) {
+  const guard = await requireBendahara()
+  if (guard) return guard
+
   const supabase = await createClient()
   const { data: tx } = await supabase
     .from('transactions')

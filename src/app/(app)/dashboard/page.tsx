@@ -24,6 +24,7 @@ import {
   fetchTransactions,
 } from '@/lib/queries'
 import type { ClassInfo, Transaction } from '@/lib/types'
+import { getSessionUser } from '@/lib/session'
 import {
   firstDayOfMonth,
   formatIDR,
@@ -80,6 +81,13 @@ interface DashboardData {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isBendahara, setIsBendahara] = useState(true)
+
+  useEffect(() => {
+    getSessionUser()
+      .then((u) => setIsBendahara(u?.role === 'bendahara'))
+      .catch(() => setIsBendahara(true))
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -194,9 +202,11 @@ export default function DashboardPage() {
             title="Iuran Bulan Ini"
             subtitle={formatMonthLabel(new Date().toISOString().slice(0, 10))}
             action={
-              <Link href="/iuran" className="text-xs font-medium text-brand-600 hover:underline">
-                Kelola
-              </Link>
+              isBendahara ? (
+                <Link href="/iuran" className="text-xs font-medium text-brand-600 hover:underline">
+                  Kelola
+                </Link>
+              ) : undefined
             }
           />
           <CardContent>
@@ -218,9 +228,11 @@ export default function DashboardPage() {
         <CardHeader
           title="Transaksi Terbaru"
           action={
-            <Link href="/transactions" className="text-xs font-medium text-brand-600 hover:underline">
-              Lihat semua
-            </Link>
+            isBendahara ? (
+              <Link href="/transactions" className="text-xs font-medium text-brand-600 hover:underline">
+                Lihat semua
+              </Link>
+            ) : undefined
           }
         />
         {data.recent.length === 0 ? (
