@@ -80,6 +80,42 @@ create table if not exists public.app_users (
   created_at timestamptz not null default now()
 );
 
+-- Trigger: username auto-fill dari email (prefix sebelum "@", huruf kecil)
+-- Setiap akun yang dibuat di Supabase Auth otomatis terdaftar.
+create or replace function public.handle_new_app_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.app_users (id, username, email, role)
+  values (
+    new.id,
+    lower(split_part(new.email, '@', 1)),
+    new.email,
+    'bendahara'
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_app_user();
+
+-- Backfill: user lama yang belum punya baris app_users (aman diulang)
+insert into public.app_users (id, username, email, role)
+select
+  u.id,
+  lower(split_part(u.email, '@', 1)),
+  u.email,
+  'bendahara'
+from auth.users u
+on conflict (id) do nothing;
+
 alter table public.app_users enable row level security;
 
 drop policy if exists "app_users read own" on public.app_users;
@@ -204,14 +240,16 @@ on conflict (id) do nothing;
 --   ('Joko Susilo',    '010');
 
 -- ============================================================
--- DAFTARKAN AKUN (jalankan MANUAL setelah membuat user di
--- Supabase Auth -> Authentication -> Users -> Add user)
+-- CARA MEMBUAT AKUN (TIDAK PERLU INSERT MANUAL)
 --
--- insert into public.app_users (id, username, email, role)
--- select id, 'bendahara', email, 'bendahara' from auth.users where email = 'email-bendahara@contoh.com';
---
--- insert into public.app_users (id, username, email, role)
--- select id, 'walikelas', email, 'walikelas' from auth.users where email = 'email-walikelas@contoh.com';
---
--- Catatan: username wajib huruf kecil.
+-- 1. Buka Supabase Auth -> Authentication -> Users -> Add user.
+--    Masukkan email + password (kolom "nama" memang tidak ada di form ini).
+-- 2. Username TERISI OTOMATIS oleh trigger on_auth_user_created:
+--    username = bagian sebelum "@" pada email (huruf kecil).
+--    Contoh: email "bendahara.kelas@gmail.com" -> username "bendahara.kelas".
+-- 3. Role default = bendahara.
+--    Untuk akun walikelas (hanya lihat), jalankan satu baris:
+--    update public.app_users set role = 'walikelas'
+--    where username = 'username-akun-walikelas';
+-- 4. Login di aplikasi pakai username + password.
 -- ============================================================

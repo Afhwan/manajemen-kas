@@ -50,18 +50,15 @@ NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=your-unsigned-preset
 
 ## Cara Membuat Akun (Bendahara & Walikelas)
 
-Login memakai **username + password**. Auth di belakangnya tetap Supabase (email/password). Langkahnya:
+Login memakai **username + password**. Username **terisi otomatis dari email** (bagian sebelum `@`, huruf kecil) oleh trigger database — jadi tidak perlu insert manual. Auth di belakangnya tetap Supabase (email/password). Langkahnya:
 
-1. Buka Supabase Dashboard → **Authentication** → **Users** → **Add user**. Buat akun (email + password) untuk **bendahara** dan **walikelas**.
-2. Buka **SQL Editor**, jalankan skrip berikut (ganti email sesuai akun yang dibuat):
+1. Buka Supabase Dashboard → **Authentication** → **Users** → **Add user**. Buat akun (email + password) untuk **bendahara** dan **walikelas**. Form ini memang hanya menerima email — username otomatis terisi: misal email `bendahara.kelas@gmail.com` → username `bendahara.kelas`.
+2. Role default semua akun = **bendahara**. Untuk akun walikelas (hanya lihat), jalankan satu baris di SQL Editor:
    ```sql
-   insert into public.app_users (id, username, email, role)
-   select id, 'bendahara', email, 'bendahara' from auth.users where email = 'email-bendahara@contoh.com';
-
-   insert into public.app_users (id, username, email, role)
-   select id, 'walikelas', email, 'walikelas' from auth.users where email = 'email-walikelas@contoh.com';
+   update public.app_users set role = 'walikelas'
+   where username = 'username-akun-walikelas';
    ```
-3. Login pakai username (`bendahara` / `walikelas`) + password.
+3. Login pakai username + password.
    - **Bendahara**: akses penuh (semua menu + edit).
    - **Walikelas**: hanya Dashboard + Laporan, semua read-only. Akses langsung ke halaman edit akan diarahkan kembali ke Dashboard, dan RLS database menolak perubahan.
 
