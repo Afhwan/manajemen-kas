@@ -41,7 +41,7 @@ export function Modal({
         )}
       >
         <div className="sticky top-0 flex items-center justify-between border-b border-zinc-200 bg-white px-5 py-4">
-          <h3 className="text-base font-semibold text-zinc-900">{title}</h3>
+          <h3 className="font-display text-base font-semibold text-zinc-900">{title}</h3>
           <button
             onClick={onClose}
             aria-label="Tutup"

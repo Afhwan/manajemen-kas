@@ -93,7 +93,6 @@ export default function TransactionsPage() {
       const txResult = editing
         ? await updateTransaction(new FormData(e.currentTarget))
         : await addTransaction(new FormData(e.currentTarget))
-      // Re-fetch to get the new transaction id for proof upload
       await load()
       const latest = txs?.[0]
       if (latest) {
@@ -105,7 +104,7 @@ export default function TransactionsPage() {
     setModalOpen(false)
     setSaving(false)
     setProofFile(null)
-    toast(editing ? 'Transaksi diperbarui' : 'Transaksi ditambahkan')
+    toast(editing ? 'Transaksi berhasil diupdate' : 'Transaksi berhasil ditambah')
     load()
   }
 
@@ -115,7 +114,7 @@ export default function TransactionsPage() {
       toast(result.error, 'error')
       return
     }
-    toast('Transaksi dihapus')
+    toast('Transaksi kehapus')
     load()
   }
 
@@ -124,9 +123,9 @@ export default function TransactionsPage() {
     setUploadingProof(true)
     try {
       await uploadProof(t.id, proofFile)
-      toast('Bukti pembayaran diunggah')
+      toast('Bukti pembayaran ke-upload')
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Gagal mengunggah bukti', 'error')
+      toast(e instanceof Error ? e.message : 'Gagal upload bukti', 'error')
     }
     setUploadingProof(false)
     load()
@@ -136,7 +135,7 @@ export default function TransactionsPage() {
     <div>
       <PageHeader
         title="Transaksi"
-        subtitle="Catat pemasukan dan pengeluaran kas kelas"
+        subtitle="Catat duit masuk & keluar kas kelas"
       >
         <div className="flex gap-2">
           <Button variant="secondary" size="sm" onClick={() => openAdd('income')}>
@@ -176,7 +175,7 @@ export default function TransactionsPage() {
         {filtered.length === 0 ? (
           <EmptyState
             title="Belum ada transaksi"
-            description="Tambahkan pemasukan atau pengeluaran pertama."
+            description="Gas tambah pemasukan atau pengeluaran pertama."
             action={
               <Button size="sm" onClick={() => openAdd('income')}>
                 Tambah Transaksi
@@ -223,7 +222,7 @@ export default function TransactionsPage() {
                             href={t.proof_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-xs font-medium text-emerald-600 hover:underline"
+                            className="text-xs font-medium text-brand-600 hover:underline"
                           >
                             Lihat
                           </a>
@@ -265,7 +264,7 @@ export default function TransactionsPage() {
           setDeleteTarget(null)
         }}
         title="Hapus Transaksi"
-        message="Apakah Anda yakin ingin menghapus transaksi ini? Tindakan ini tidak bisa dibatalkan."
+        message="Yakin mau hapus transaksi ini? Gak bisa dibatalkan lagi lho."
         confirmLabel="Hapus"
       />
 
@@ -304,7 +303,7 @@ export default function TransactionsPage() {
             </Select>
           </Field>
 
-          <Field label="Jumlah (Rp)" hint="Gunakan angka tanpa titik/rupiah">
+          <Field label="Jumlah (Rp)" hint="Isi angka aja, tanpa titik/rupiah">
             <Input
               type="number"
               name="amount"
@@ -348,9 +347,9 @@ export default function TransactionsPage() {
                 href={editing.proof_url}
                 target="_blank"
                 rel="noreferrer"
-                className="text-xs font-medium text-emerald-600 hover:underline"
+                className="text-xs font-medium text-brand-600 hover:underline"
               >
-                Bukti saat ini (lihat)
+                Bukti sekarang (cek)
               </a>
               <Button
                 type="button"
@@ -358,7 +357,7 @@ export default function TransactionsPage() {
                 size="sm"
                 onClick={async () => {
                   await removeProof(editing.id)
-                  toast('Bukti dihapus')
+                  toast('Bukti kehapus')
                   load()
                 }}
               >
@@ -377,7 +376,7 @@ export default function TransactionsPage() {
             </Button>
             <Button type="submit" disabled={saving || uploadingProof}>
               {saving || uploadingProof ? <Spinner className="border-white/40 border-t-white" /> : null}
-              {saving ? 'Menyimpan…' : uploadingProof ? 'Mengunggah bukti…' : 'Simpan'}
+              {saving ? 'Nyimpen…' : uploadingProof ? 'Upload bukti…' : 'Simpen'}
             </Button>
           </div>
         </form>

@@ -9,9 +9,9 @@ export async function updateClassInfo(formData: FormData) {
   const academic_year = String(formData.get('academic_year') ?? '').trim()
   const iuran_amount = parseInt(String(formData.get('iuran_amount') ?? '0'), 10)
 
-  if (!class_name) return { error: 'Nama kelas wajib diisi' }
+  if (!class_name) return { error: 'Nama kelas wajib diisi dong' }
   if (!academic_year) return { error: 'Tahun ajaran wajib diisi' }
-  if (!iuran_amount || iuran_amount < 0) return { error: 'Nominal iuran tidak valid' }
+  if (!iuran_amount || iuran_amount < 0) return { error: 'Nominal iuran belum valid nih' }
 
   const { error } = await supabase
     .from('class_info')
@@ -27,8 +27,8 @@ export async function addCategory(formData: FormData) {
   const name = String(formData.get('name') ?? '').trim()
   const type = String(formData.get('type') ?? 'income')
 
-  if (!name) return { error: 'Nama kategori wajib diisi' }
-  if (!['income', 'expense'].includes(type)) return { error: 'Tipe tidak valid' }
+  if (!name) return { error: 'Nama kategori harus diisi dulu' }
+  if (!['income', 'expense'].includes(type)) return { error: 'Tipe kategori gak valid' }
 
   const { error } = await supabase.from('categories').insert({ name, type })
   if (error) return { error: error.message }

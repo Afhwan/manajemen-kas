@@ -31,14 +31,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-900 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-600 via-brand-800 to-brand-950 p-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center text-white">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 text-2xl font-bold backdrop-blur">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white font-display text-2xl font-bold text-brand-700 shadow-lg">
             K
           </div>
-          <h1 className="text-2xl font-bold">Kas Kelas</h1>
-          <p className="mt-1 text-sm text-white/80">Manajemen keuangan kelas</p>
+          <h1 className="font-display text-3xl font-bold">Kas Kelas</h1>
+          <p className="mt-1 text-sm text-white/80">Kelola duit kas kelasmu</p>
         </div>
 
         <form
@@ -75,7 +75,7 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-4 text-center text-xs text-white/70">
-          Login hanya untuk bendahara/admin yang didaftarkan di Supabase Auth.
+          Login khusus bendahara/admin yang udah didaftarin di Supabase Auth.
         </p>
       </div>
     </div>

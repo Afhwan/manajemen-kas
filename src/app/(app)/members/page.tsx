@@ -58,28 +58,30 @@ export default function MembersPage() {
     setSaving(true)
     setFormError(null)
     const formData = new FormData(e.currentTarget)
+
     const result = editing
       ? await updateMember(formData)
       : await addMember(formData)
 
     if (result && 'error' in result) {
-      setFormError(result.error)
+      setFormError(result.error as string)
       setSaving(false)
       return
     }
+
     setModalOpen(false)
     setSaving(false)
-    toast(editing ? 'Anggota diperbarui' : 'Anggota ditambahkan')
+    toast(editing ? 'Anggota berhasil diupdate' : 'Anggota berhasil ditambah')
     load()
   }
 
   async function handleToggleActive(m: Member) {
     const result = await setMemberActive(m.id, !m.is_active)
     if (result && 'error' in result) {
-      toast(result.error, 'error')
+      toast(result.error as string, 'error')
       return
     }
-    toast(m.is_active ? 'Anggota dinonaktifkan' : 'Anggota diaktifkan')
+    toast(m.is_active ? 'Anggota dinonaktifkan' : 'Anggota diaktifkan lagi')
     load()
   }
 
@@ -91,7 +93,7 @@ export default function MembersPage() {
     <div>
       <PageHeader
         title="Anggota"
-        subtitle={`${activeCount} siswa aktif dari ${members.length} total`}
+        subtitle={`${activeCount} anak aktif dari ${members.length} total`}
       >
         <Button onClick={openAdd}>Tambah Anggota</Button>
       </PageHeader>
@@ -108,11 +110,11 @@ export default function MembersPage() {
       <Card>
         {filtered.length === 0 ? (
           <EmptyState
-            title={search ? 'Tidak ditemukan' : 'Belum ada anggota'}
+            title={search ? 'Nggak ketemu' : 'Belum ada anggota'}
             description={
               search
-                ? 'Coba ubah kata kunci pencarian.'
-                : 'Tambahkan siswa pertama untuk mulai mencatat iuran.'
+                ? 'Coba ganti kata kunci pencariannya.'
+                : 'Gas tambah anggota pertama biar bisa mulai catat iuran.'
             }
             action={!search ? <Button onClick={openAdd}>Tambah Anggota</Button> : undefined}
           />
@@ -173,7 +175,7 @@ export default function MembersPage() {
           <Field label="Nama Lengkap">
             <Input name="name" required defaultValue={editing?.name ?? ''} placeholder="Nama siswa" />
           </Field>
-          <Field label="NIS" hint="Opsional">
+          <Field label="NIS" hint="Boleh kosong">
             <Input name="nis" defaultValue={editing?.nis ?? ''} placeholder="Contoh: 2026001" />
           </Field>
           {formError ? (
@@ -184,7 +186,7 @@ export default function MembersPage() {
               Batal
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving ? 'Menyimpan…' : 'Simpan'}
+              {saving ? 'Nyimpen…' : 'Simpen'}
             </Button>
           </div>
         </form>

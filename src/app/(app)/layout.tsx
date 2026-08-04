@@ -88,12 +88,12 @@ function SidebarContent({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2.5 px-5 py-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 font-bold text-white">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white font-bold text-brand-700 shadow-sm">
           K
         </div>
         <div>
-          <p className="text-sm font-bold text-zinc-900">Kas Kelas</p>
-          <p className="text-xs text-zinc-400">Manajemen Keuangan</p>
+          <p className="font-display text-base font-bold text-white">Kas Kelas</p>
+          <p className="text-xs text-rose-200/70">Kelola Duit Kas</p>
         </div>
       </div>
 
@@ -107,10 +107,10 @@ function SidebarContent({
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
                 active
-                  ? 'bg-emerald-50 text-emerald-700'
-                  : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                  ? 'bg-white/10 text-white shadow-inner'
+                  : 'text-rose-100/80 hover:bg-white/5 hover:text-white'
               )}
             >
               {item.icon}
@@ -120,16 +120,16 @@ function SidebarContent({
         })}
       </nav>
 
-      <div className="border-t border-zinc-200 p-3">
-        <div className="flex items-center gap-2.5 rounded-lg px-2 py-2">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700">
+      <div className="border-t border-white/10 p-3">
+        <div className="flex items-center gap-2.5 rounded-xl bg-white/5 px-2 py-2">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 text-xs font-bold text-white">
             {email ? initials(email) : '?'}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium text-zinc-700">{email ?? 'Pengguna'}</p>
+            <p className="truncate text-xs font-medium text-rose-50">{email ?? 'Pengguna'}</p>
             <button
               onClick={onLogout}
-              className="text-xs font-medium text-red-600 hover:underline"
+              className="text-xs font-medium text-rose-200 hover:text-white hover:underline"
             >
               Keluar
             </button>
@@ -163,7 +163,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <ToastProvider>
       <div className="flex min-h-screen bg-zinc-50">
         {/* Sidebar desktop */}
-        <aside className="hidden w-64 shrink-0 border-r border-zinc-200 bg-white md:block">
+        <aside className="hidden w-64 shrink-0 border-r border-white/5 bg-gradient-to-b from-brand-900 to-brand-950 md:block">
           <div className="sticky top-0 h-screen">
             <SidebarContent pathname={pathname} email={email} onLogout={handleLogout} />
           </div>
@@ -176,7 +176,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               className="absolute inset-0 bg-black/40"
               onClick={() => setDrawerOpen(false)}
             />
-            <aside className="absolute inset-y-0 left-0 w-64 bg-white shadow-xl">
+            <aside className="absolute inset-y-0 left-0 w-64 bg-gradient-to-b from-brand-900 to-brand-950 shadow-xl">
               <SidebarContent
                 pathname={pathname}
                 email={email}

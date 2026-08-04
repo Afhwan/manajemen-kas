@@ -46,7 +46,7 @@ export async function markIuranUnpaid(memberId: string, period: string) {
     .eq('period', period)
     .single()
 
-  if (!existing) return { error: 'Data iuran tidak ditemukan' }
+  if (!existing) return { error: 'Data iurannya gak ditemukan' }
 
   if (existing.transaction_id) {
     const { error: txErr } = await supabase
@@ -70,7 +70,6 @@ export async function batchMarkPaid(
   period: string,
   amount: number
 ) {
-  const supabase = await createClient()
   const results = await Promise.all(
     memberIds.map((id) =>
       markIuranPaid(id, period, amount).catch((e) => ({ error: e.message }))
@@ -78,7 +77,7 @@ export async function batchMarkPaid(
   )
   const errors = results.filter((r) => r && 'error' in r)
   if (errors.length > 0) {
-    return { error: `${errors.length} dari ${memberIds.length} gagal ditandai` }
+    return { error: `${errors.length} dari ${memberIds.length} gagal ditandai, coba lagi` }
   }
   revalidatePath('/iuran')
 }

@@ -11,8 +11,8 @@ export async function addTransaction(formData: FormData) {
   const description = String(formData.get('description') ?? '').trim()
   const transactionDate = String(formData.get('transaction_date') ?? '')
 
-  if (!amount || amount < 0) return { error: 'Jumlah tidak valid' }
-  if (!description) return { error: 'Keterangan wajib diisi' }
+  if (!amount || amount < 0) return { error: 'Nominalnya harus lebih dari nol dong' }
+  if (!description) return { error: 'Keterangannya jangan kosong ya' }
 
   const payload: {
     type: string
@@ -45,8 +45,8 @@ export async function updateTransaction(formData: FormData) {
   const description = String(formData.get('description') ?? '').trim()
   const transactionDate = String(formData.get('transaction_date') ?? '')
 
-  if (!amount || amount < 0) return { error: 'Jumlah tidak valid' }
-  if (!description) return { error: 'Keterangan wajib diisi' }
+  if (!amount || amount < 0) return { error: 'Nominalnya harus lebih dari nol dong' }
+  if (!description) return { error: 'Keterangannya jangan kosong ya' }
 
   const { error } = await supabase
     .from('transactions')
@@ -69,7 +69,7 @@ export async function deleteTransaction(id: string) {
   const { data: tx } = await supabase.from('transactions').select('iuran_id').eq('id', id).single()
 
   if (tx?.iuran_id) {
-    return { error: 'Transaksi ini terhubung dengan iuran. Batalkan iuran terlebih dahulu.' }
+    return { error: 'Transaksi ini masih nyambung ke iuran. Batalin iurannya dulu ya.' }
   }
 
   const { error } = await supabase.from('transactions').delete().eq('id', id)

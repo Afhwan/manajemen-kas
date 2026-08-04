@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 import type { ReactNode } from 'react'
 
-type BadgeVariant = 'green' | 'red' | 'amber' | 'blue' | 'zinc'
+type BadgeVariant = 'green' | 'red' | 'amber' | 'blue' | 'zinc' | 'brand'
 
 const variants: Record<BadgeVariant, string> = {
   green: 'bg-emerald-100 text-emerald-700',
@@ -9,6 +9,7 @@ const variants: Record<BadgeVariant, string> = {
   amber: 'bg-amber-100 text-amber-700',
   blue: 'bg-blue-100 text-blue-700',
   zinc: 'bg-zinc-100 text-zinc-600',
+  brand: 'bg-brand-100 text-brand-700',
 }
 
 export function Badge({

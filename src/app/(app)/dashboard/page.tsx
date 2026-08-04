@@ -47,11 +47,11 @@ function StatCard({
   label: string
   value: string
   sub?: string
-  tone: 'emerald' | 'blue' | 'red' | 'zinc'
+  tone: 'brand' | 'emerald' | 'red' | 'zinc'
 }) {
   const tones = {
+    brand: 'bg-brand-100 text-brand-700',
     emerald: 'bg-emerald-100 text-emerald-700',
-    blue: 'bg-blue-100 text-blue-700',
     red: 'bg-red-100 text-red-700',
     zinc: 'bg-zinc-100 text-zinc-700',
   }
@@ -130,7 +130,7 @@ export default function DashboardPage() {
 
       setData({ info, balance, monthIn, monthOut, activeCount, paidCount, chart: buckets, recent: recentTx })
     }
-    load().catch((e) => setError(e instanceof Error ? e.message : 'Gagal memuat data'))
+    load().catch((e) => setError(e instanceof Error ? e.message : 'Gagal load data'))
     return () => {
       cancelled = true
     }
@@ -158,15 +158,15 @@ export default function DashboardPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Saldo Kas" value={formatIDR(data.balance)} sub="Saldo terkini" tone="emerald" />
-        <StatCard label="Pemasukan Bulan Ini" value={formatIDR(data.monthIn)} sub={formatMonthLabel(new Date().toISOString().slice(0, 10))} tone="blue" />
+        <StatCard label="Saldo Kas" value={formatIDR(data.balance)} sub="Saldo sekarang" tone="brand" />
+        <StatCard label="Pemasukan Bulan Ini" value={formatIDR(data.monthIn)} sub={formatMonthLabel(new Date().toISOString().slice(0, 10))} tone="emerald" />
         <StatCard label="Pengeluaran Bulan Ini" value={formatIDR(data.monthOut)} sub={formatMonthLabel(new Date().toISOString().slice(0, 10))} tone="red" />
         <StatCard label="Siswa Aktif" value={String(data.activeCount)} sub="Anggota kelas" tone="zinc" />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader title="Pemasukan vs Pengeluaran" subtitle="6 bulan terakhir" />
+          <CardHeader title="Pemasukan vs Pengeluaran" subtitle="6 bulan kebelakang" />
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
@@ -182,7 +182,7 @@ export default function DashboardPage() {
                   <Tooltip formatter={(v) => formatIDR(Number(v))} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Bar dataKey="masuk" name="Pemasukan" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                  <Bar dataKey="keluar" name="Pengeluaran" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                  <Bar dataKey="keluar" name="Pengeluaran" fill="#d94a5d" radius={[4, 4, 0, 0]} maxBarSize={32} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -194,7 +194,7 @@ export default function DashboardPage() {
             title="Iuran Bulan Ini"
             subtitle={formatMonthLabel(new Date().toISOString().slice(0, 10))}
             action={
-              <Link href="/iuran" className="text-xs font-medium text-emerald-600 hover:underline">
+              <Link href="/iuran" className="text-xs font-medium text-brand-600 hover:underline">
                 Kelola
               </Link>
             }
@@ -205,8 +205,7 @@ export default function DashboardPage() {
               <span className="text-base font-medium text-zinc-400"> / {data.activeCount} siswa</span>
             </p>
             <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-zinc-100">
-              <div
-                className="h-full rounded-full bg-emerald-500 transition-all"
+              <div className="h-full rounded-full bg-brand-500 transition-all"
                 style={{ width: `${iuranPct}%` }}
               />
             </div>
@@ -219,14 +218,14 @@ export default function DashboardPage() {
         <CardHeader
           title="Transaksi Terbaru"
           action={
-            <Link href="/transactions" className="text-xs font-medium text-emerald-600 hover:underline">
+            <Link href="/transactions" className="text-xs font-medium text-brand-600 hover:underline">
               Lihat semua
             </Link>
           }
         />
         {data.recent.length === 0 ? (
           <CardContent>
-            <p className="py-6 text-center text-sm text-zinc-400">Belum ada transaksi.</p>
+            <p className="py-6 text-center text-sm text-zinc-400">Belum ada transaksi nih.</p>
           </CardContent>
         ) : (
           <ul className="divide-y divide-zinc-100">

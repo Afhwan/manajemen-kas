@@ -1,13 +1,13 @@
 import { createClient } from '@/lib/supabase/client'
 import type { Category, ClassInfo, Iuran, Member, Transaction } from '@/lib/types'
 
-export async function fetchClassInfo(): Promise<ClassInfo | null> {
+export async function fetchClassInfo() {
   const supabase = createClient()
   const { data } = await supabase.from('class_info').select('*').single()
   return (data as ClassInfo | null) ?? null
 }
 
-export async function fetchMembers(includeInactive = true): Promise<Member[]> {
+export async function fetchMembers(includeInactive = true) {
   const supabase = createClient()
   let query = supabase.from('members').select('*').order('name', { ascending: true })
   if (!includeInactive) query = query.eq('is_active', true)
@@ -15,7 +15,7 @@ export async function fetchMembers(includeInactive = true): Promise<Member[]> {
   return (data as Member[]) ?? []
 }
 
-export async function fetchCategories(): Promise<Category[]> {
+export async function fetchCategories() {
   const supabase = createClient()
   const { data } = await supabase
     .from('categories')
@@ -30,7 +30,7 @@ export async function fetchTransactions(opts?: {
   type?: 'income' | 'expense'
   categoryId?: string
   limit?: number
-}): Promise<Transaction[]> {
+}) {
   const supabase = createClient()
   let query = supabase
     .from('transactions')
@@ -48,7 +48,7 @@ export async function fetchTransactions(opts?: {
   return (data as Transaction[]) ?? []
 }
 
-export async function fetchIurans(period?: string): Promise<Iuran[]> {
+export async function fetchIurans(period?: string) {
   const supabase = createClient()
   let query = supabase
     .from('iurans')

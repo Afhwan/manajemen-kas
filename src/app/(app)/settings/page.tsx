@@ -38,7 +38,7 @@ export default function SettingsPage() {
     if (result && 'error' in result) {
       toast(result.error, 'error')
     } else {
-      toast('Pengaturan kelas diperbarui')
+      toast('Pengaturan kelas keupdate')
       load()
     }
     setSaving(false)
@@ -51,7 +51,7 @@ export default function SettingsPage() {
     if (result && 'error' in result) {
       toast(result.error, 'error')
     } else {
-      toast('Kategori ditambahkan')
+      toast('Kategori berhasil ditambah')
       load()
     }
     setCatAdding(false)
@@ -62,18 +62,18 @@ export default function SettingsPage() {
     if (result && 'error' in result) {
       toast(result.error, 'error')
     } else {
-      toast(`Kategori ${active ? 'diaktifkan' : 'dinonaktifkan'}`)
+      toast(`Kategori ${active ? 'diaktifin' : 'dinonaktifin'}`)
       load()
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Hapus kategori ini?')) return
+    if (!confirm('Yakin hapus kategori ini?')) return
     const result = await deleteCategory(id)
     if (result && 'error' in result) {
       toast(result.error, 'error')
     } else {
-      toast('Kategori dihapus')
+      toast('Kategori kehapus')
       load()
     }
   }
@@ -82,7 +82,7 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <PageHeader title="Pengaturan" subtitle="Konfigurasi kelas, iuran, dan kategori" />
+      <PageHeader title="Pengaturan" subtitle="Atur kelas, iuran, dan kategori" />
 
       <form onSubmit={handleInfoUpdate} className="mb-8 space-y-4">
         <Card>
@@ -98,7 +98,7 @@ export default function SettingsPage() {
               <Input name="iuran_amount" type="number" required min={0} defaultValue={info?.iuran_amount ?? 10000} />
             </Field>
             <Button type="submit" disabled={saving}>
-              {saving ? 'Menyimpan…' : 'Simpan'}
+              {saving ? 'Nyimpen…' : 'Simpen'}
             </Button>
           </CardContent>
         </Card>
@@ -118,7 +118,7 @@ export default function SettingsPage() {
               </Select>
             </Field>
             <Button type="submit" disabled={catAdding} className="self-end">
-              {catAdding ? 'Menambah…' : 'Tambah'}
+              {catAdding ? 'Nambahin…' : 'Tambah'}
             </Button>
           </form>
 

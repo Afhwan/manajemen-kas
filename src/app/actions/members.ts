@@ -8,7 +8,7 @@ export async function addMember(formData: FormData) {
   const name = String(formData.get('name') ?? '').trim()
   const nis = String(formData.get('nis') ?? '').trim() || null
 
-  if (!name) return { error: 'Nama wajib diisi' }
+  if (!name) return { error: 'Nama siswa harus diisi dong' }
 
   const { error } = await supabase.from('members').insert({ name, nis })
   if (error) return { error: error.message }
@@ -21,7 +21,7 @@ export async function updateMember(formData: FormData) {
   const name = String(formData.get('name') ?? '').trim()
   const nis = String(formData.get('nis') ?? '').trim() || null
 
-  if (!name) return { error: 'Nama wajib diisi' }
+  if (!name) return { error: 'Nama siswa harus diisi dong' }
 
   const { error } = await supabase.from('members').update({ name, nis }).eq('id', id)
   if (error) return { error: error.message }

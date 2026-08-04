@@ -1,7 +1,3 @@
-export function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(' ')
-}
-
 const MONTHS_ID = [
   'Januari',
   'Februari',
@@ -15,8 +11,11 @@ const MONTHS_ID = [
   'Oktober',
   'November',
   'Desember',
-]
+] as const
 
+export function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(' ')
+}
 export function formatIDR(amount: number) {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -39,8 +38,8 @@ export function formatMonthLabel(dateStr: string) {
   return `${MONTHS_ID[d.getMonth()]} ${d.getFullYear()}`
 }
 
-export function formatMonthShort(monthIndex: number) {
-  return MONTHS_ID[monthIndex].slice(0, 3)
+export function formatMonthShort(idx: number) {
+  return MONTHS_ID[idx].slice(0, 3)
 }
 
 export function firstDayOfMonth(year: number, monthIndex: number) {
@@ -49,14 +48,6 @@ export function firstDayOfMonth(year: number, monthIndex: number) {
 
 export function periodFromDate(d: Date) {
   return firstDayOfMonth(d.getFullYear(), d.getMonth())
-}
-
-export function todayISO() {
-  return new Date().toISOString().slice(0, 10)
-}
-
-export function monthRangeLabel(year: number, monthIndex: number) {
-  return `${MONTHS_ID[monthIndex]} ${year}`
 }
 
 export function initials(name: string) {

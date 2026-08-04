@@ -154,7 +154,7 @@ export default function ReportsPage() {
         <Card>
           <CardHeader title="Rincian Pengeluaran per Kategori" />
           {categoryBreakdown.length === 0 ? (
-            <CardContent><p className="py-4 text-center text-sm text-zinc-400">Tidak ada pengeluaran bulan ini.</p></CardContent>
+            <CardContent><p className="py-4 text-center text-sm text-zinc-400">Nggak ada pengeluaran bulan ini.</p></CardContent>
           ) : (
             <CardContent className="p-0">
               <ul className="divide-y divide-zinc-100">
@@ -172,7 +172,7 @@ export default function ReportsPage() {
         <Card>
           <CardHeader title="Rekap Iuran per Anggota" />
           {iuranByMember.length === 0 ? (
-            <CardContent><p className="py-4 text-center text-sm text-zinc-400">Tidak ada data iuran.</p></CardContent>
+            <CardContent><p className="py-4 text-center text-sm text-zinc-400">Belum ada data iuran.</p></CardContent>
           ) : (
             <CardContent className="p-0">
               <div className="overflow-x-auto">

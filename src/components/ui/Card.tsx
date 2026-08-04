@@ -19,9 +19,9 @@ export function CardHeader({
   action?: ReactNode
 }) {
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-zinc-100 px-5 py-4">
+      <div className="flex items-start justify-between gap-3 border-b border-zinc-100 px-5 py-4">
       <div>
-        <h3 className="text-sm font-semibold text-zinc-900">{title}</h3>
+        <h3 className="font-display text-base font-semibold text-zinc-900">{title}</h3>
         {subtitle ? <p className="mt-0.5 text-xs text-zinc-500">{subtitle}</p> : null}
       </div>
       {action}

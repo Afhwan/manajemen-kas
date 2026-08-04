@@ -60,14 +60,14 @@ export default function IuranPage() {
         toast(result.error, 'error')
         return
       }
-      toast('Iuran ditandai belum bayar')
+      toast('Iuran ditandain belum bayar')
     } else {
       const result = await markIuranPaid(memberId, period, totalAmount)
       if (result && 'error' in result) {
         toast(result.error, 'error')
         return
       }
-      toast('Iuran ditandai lunas')
+      toast('Iuran ditandain lunas')
     }
     load()
   }
@@ -84,7 +84,7 @@ export default function IuranPage() {
     if (result && 'error' in result) {
       toast(result.error, 'error')
     } else {
-      toast(`${selectedIds.size} siswa ditandai lunas`)
+      toast(`${selectedIds.size} siswa ditandain lunas`)
     }
     setBatchSaving(false)
     setBatchMode(false)
@@ -125,7 +125,7 @@ export default function IuranPage() {
         {members.length === 0 ? (
           <CardContent>
             <p className="py-6 text-center text-sm text-zinc-400">
-              Belum ada anggota aktif. Tambahkan anggota di halaman Anggota.
+              Belum ada anggota aktif nih. Gas tambah di halaman Anggota dulu.
             </p>
           </CardContent>
         ) : (
@@ -160,7 +160,7 @@ export default function IuranPage() {
                             size="sm"
                             onClick={() => togglePaid(m.id)}
                           >
-                            {paid ? 'Batalkan' : 'Tandai Lunas'}
+                            {paid ? 'Batalin' : 'Tandai Lunas'}
                           </Button>
                         </td>
                       </tr>
@@ -189,9 +189,9 @@ export default function IuranPage() {
       )}
 
       {batchMode ? (
-        <form onSubmit={handleBatchMark} className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="text-sm font-medium text-emerald-800">
-            Tandai {selectedIds.size} siswa berikut sebagai lunas ({formatIDR(totalAmount)}/siswa)
+        <form onSubmit={handleBatchMark} className="mt-4 rounded-xl border border-brand-200 bg-brand-50 p-4">
+          <p className="text-sm font-medium text-brand-800">
+            Tandai {selectedIds.size} siswa ini lunas ({formatIDR(totalAmount)}/anak)
           </p>
           {selectedIds.size > 0 && (
             <div className="mt-3 flex justify-end gap-2">
@@ -199,7 +199,7 @@ export default function IuranPage() {
                 Batal
               </Button>
               <Button type="submit" size="sm" disabled={batchSaving}>
-                {batchSaving ? 'Menyimpan…' : 'Konfirmasi'}
+                {batchSaving ? 'Nyimpen…' : 'Konfirmasi'}
               </Button>
             </div>
           )}

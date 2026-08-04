@@ -14,7 +14,7 @@ export function Spinner({ className }: { className?: string }) {
 export function PageLoader() {
   return (
     <div className="flex min-h-[60vh] items-center justify-center">
-      <Spinner className="h-8 w-8 border-zinc-200 border-t-emerald-600" />
+      <Spinner className="h-8 w-8 border-zinc-200 border-t-brand-600" />
     </div>
   )
 }
