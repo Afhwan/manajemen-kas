@@ -19,14 +19,16 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
 export function Field({
   label,
   hint,
+  className,
   children,
 }: {
   label: string
   hint?: string
+  className?: string
   children: ReactNode
 }) {
   return (
-    <label className="block space-y-1.5">
+    <label className={cn('block space-y-1.5', className)}>
       <span className="text-sm font-medium text-zinc-700">{label}</span>
       {children}
       {hint ? <span className="block text-xs text-zinc-400">{hint}</span> : null}

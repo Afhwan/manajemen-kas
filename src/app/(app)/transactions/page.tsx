@@ -83,7 +83,7 @@ export default function TransactionsPage() {
       : await addTransaction(formData)
 
     if (result && 'error' in result) {
-      setFormError(result.error)
+      setFormError(result.error as string)
       setSaving(false)
       return
     }
@@ -122,11 +122,11 @@ export default function TransactionsPage() {
   async function handleUploadProof(t: Transaction) {
     if (!proofFile) return
     setUploadingProof(true)
-    const result = await uploadProof(t.id, proofFile)
-    if (result && 'error' in result) {
-      toast(result.error, 'error')
-    } else {
+    try {
+      await uploadProof(t.id, proofFile)
       toast('Bukti pembayaran diunggah')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Gagal mengunggah bukti', 'error')
     }
     setUploadingProof(false)
     load()
@@ -337,8 +337,7 @@ export default function TransactionsPage() {
               type="file"
               accept="image/*"
               onChange={(e) => {
-                const f = e.target.files?.[0] ?? null
-                setProofFile(f)
+                setProofFile(e.target.files?.[0] || null)
               }}
             />
           </Field>

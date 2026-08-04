@@ -80,7 +80,7 @@ export async function deleteTransaction(id: string) {
 export async function uploadProof(
   id: string,
   file: File
-): Promise<{ error?: string }> {
+): Promise<void> {
   const supabase = await createClient()
   const { compressImage, uploadProofToCloudinary } = await import('@/lib/cloudinary')
 
@@ -92,7 +92,7 @@ export async function uploadProof(
     .update({ proof_public_id: publicId, proof_url: url })
     .eq('id', id)
 
-  if (error) return { error: error.message }
+  if (error) throw new Error(error.message)
   revalidatePath('/transactions')
 }
 

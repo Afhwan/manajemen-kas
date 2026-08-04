@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Field, Input, Select } from '@/components/ui/Field'

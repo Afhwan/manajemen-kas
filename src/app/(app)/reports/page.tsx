@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { PageLoader } from '@/components/ui/Spinner'
 import { fetchClassInfo, fetchIurans, fetchMembers, fetchTransactions } from '@/lib/queries'
-import { formatIDR, formatMonthLabel, formatMonthShort, periodFromDate } from '@/lib/utils'
+import { formatIDR, formatMonthLabel, formatMonthShort, firstDayOfMonth, periodFromDate } from '@/lib/utils'
 import type { ClassInfo, Iuran, Member, Transaction } from '@/lib/types'
 
 function exportCSV(filename: string, rows: string[][]) {
@@ -110,7 +110,7 @@ export default function ReportsPage() {
             onChange={(e) => setMonth(Number(e.target.value))}
           >
             {Array.from({ length: 12 }, (_, i) => (
-              <option key={i} value={i}>{formatMonthLabel(new Date(year, i, 1))}</option>
+              <option key={i} value={i}>{formatMonthLabel(firstDayOfMonth(year, i))}</option>
             ))}
           </select>
           <Button
