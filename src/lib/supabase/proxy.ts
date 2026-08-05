@@ -47,11 +47,9 @@ export async function updateSession(request: NextRequest) {
   // Walikelas hanya boleh melihat Dashboard & Laporan.
   if (user && !isLoginPage) {
     try {
-      const { data: profile } = await supabase
-        .from('app_users')
-        .select('role')
-        .eq('id', user.id)
-        .single()
+      const { data: profile } = await supabase.rpc('get_app_user', {
+        p_uid: user.id,
+      })
 
       const isWalikelas = profile?.role === 'walikelas'
       const isEditOnly = EDIT_ONLY_PATHS.some((p) => pathname.startsWith(p))
