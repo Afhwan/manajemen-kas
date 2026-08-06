@@ -1,13 +1,82 @@
-import type { NextRequest } from 'next/server'
-import { updateSession } from '@/lib/supabase/proxy'
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
+
+const BENDARA_EDIT_PATHS = ['/members', '/transactions', '/iuran', '/settings']
+const SUPERADMIN_ONLY_PATHS = ['/pengguna']
 
 export async function proxy(request: NextRequest) {
-  return await updateSession(request)
-}
+  let supabaseResponse = NextResponse.next({ request })
 
-export const config = {
-  matcher: [
-    // Kecualikan aset statis dan image optimizer
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
-  ],
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          supabaseResponse = NextResponse.next({ request })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const pathname = request.nextUrl.pathname
+  const isLoginPage = pathname.startsWith('/login')
+
+  if (!user && !isLoginPage) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    return NextResponse.redirect(url)
+  }
+
+  if (user && isLoginPage) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    return NextResponse.redirect(url)
+  }
+
+  if (user && !isLoginPage) {
+    try {
+      const { data: profile } = await supabase.rpc('get_app_user', {
+        p_uid: user.id,
+      })
+
+      const role = (profile as { role?: string } | null)?.role ?? null
+      const isWalikelas = role === 'walikelas'
+      const isBendahara = role === 'bendahara'
+
+      // Walikelas hanya Dashboard + Laporan.
+      if (isWalikelas) {
+        const isForbidden = [...BENDARA_EDIT_PATHS, ...SUPERADMIN_ONLY_PATHS].some((p) =>
+          pathname.startsWith(p)
+        )
+        if (isForbidden) {
+          const url = request.nextUrl.clone()
+          url.pathname = '/dashboard'
+          return NextResponse.redirect(url)
+        }
+      }
+
+      // Bendahara tidak boleh akses Kelola Pengguna.
+      if (isBendahara && SUPERADMIN_ONLY_PATHS.some((p) => pathname.startsWith(p))) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/dashboard'
+        return NextResponse.redirect(url)
+      }
+    } catch {
+      // Jika lookup role gagal, jangan blokir routing.
+    }
+  }
+
+  return supabaseResponse
 }

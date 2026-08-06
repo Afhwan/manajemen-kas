@@ -1,275 +1,242 @@
-'use client'
-
-import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ExportCsvButton } from '@/components/ExportCsvButton'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { PageLoader } from '@/components/ui/Spinner'
-import { fetchClassInfo, fetchIurans, fetchMembers, fetchTransactions } from '@/lib/queries'
-import { formatIDR, formatMonthLabel, formatMonthShort, firstDayOfMonth, periodFromDate } from '@/lib/utils'
-import type { ClassInfo, Iuran, Member, Transaction } from '@/lib/types'
+import { createClient } from '@/lib/supabase/server'
+import { computeBalance, formatMonthPeriod, formatRupiah } from '@/lib/utils'
 
-function exportCSV(filename: string, rows: string[][]) {
-  const blob = new Blob(
-    [rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n')],
-    { type: 'text/csv;charset=utf-8' }
-  )
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
+export default async function ReportsPage() {
+  const supabase = await createClient()
 
-export default function ReportsPage() {
-  const [info, setInfo] = useState<ClassInfo | null>(null)
-  const [members, setMembers] = useState<Member[]>([])
-  const [txs, setTxs] = useState<Transaction[]>([])
-  const [iurans, setIurans] = useState<Iuran[]>([])
-  const [year, setYear] = useState(new Date().getFullYear())
-  const [month, setMonth] = useState(new Date().getMonth())
-  const [loading, setLoading] = useState(true)
+  const [{ data: transactions }, { data: iurans }, { data: members }] = await Promise.all([
+    supabase
+      .from('transactions')
+      .select('id, type, amount, transaction_date, description, categories(name)')
+      .order('transaction_date', { ascending: false }),
+    supabase
+      .from('iurans')
+      .select('id, member_id, period, amount, status, members(name)')
+      .order('period', { ascending: false }),
+    supabase.from('members').select('id, name, nis, is_active'),
+  ])
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    const [i, m, t, ir] = await Promise.all([
-      fetchClassInfo(),
-      fetchMembers(false),
-      fetchTransactions({ limit: 10000 }),
-      fetchIurans(),
-    ])
-    setInfo(i)
-    setMembers(m)
-    setTxs(t)
-    setIurans(ir)
-    setLoading(false)
-  }, [])
+  const tx = (transactions ?? []) as {
+    id: string
+    type: 'income' | 'expense'
+    amount: number
+    transaction_date: string
+    description: string
+    categories?: { name?: string }[] | null
+  }[]
+  const balance = computeBalance(tx)
 
-  useEffect(() => {
-    load()
-  }, [load])
+  // Rekap per bulan
+  const monthMap = new Map<string, { masuk: number; keluar: number; count: number }>()
+  tx.forEach((t) => {
+    const key = t.transaction_date.slice(0, 7)
+    const cur = monthMap.get(key) ?? { masuk: 0, keluar: 0, count: 0 }
+    cur.count += 1
+    if (t.type === 'income') cur.masuk += t.amount
+    else cur.keluar += t.amount
+    monthMap.set(key, cur)
+  })
+  const monthly = [...monthMap.entries()]
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .map(([key, v]) => ({ key, ...v, selisih: v.masuk - v.keluar }))
 
-  const monthStart = periodFromDate(new Date(year, month, 1))
-  const monthEnd = periodFromDate(new Date(year, month + 1, 1))
-  const monthTx = txs.filter((t) => t.transaction_date >= monthStart && t.transaction_date < monthEnd)
-  const monthIn = monthTx.filter((t) => t.type === 'income').reduce((a, t) => a + t.amount, 0)
-  const monthOut = monthTx.filter((t) => t.type === 'expense').reduce((a, t) => a + t.amount, 0)
+  // Rekap per kategori
+  const catMap = new Map<string, { name: string; masuk: number; keluar: number }>()
+  tx.forEach((t) => {
+    const name = t.categories?.[0]?.name ?? 'Tanpa kategori'
+    const cur = catMap.get(name) ?? { name, masuk: 0, keluar: 0 }
+    if (t.type === 'income') cur.masuk += t.amount
+    else cur.keluar += t.amount
+    catMap.set(name, cur)
+  })
+  const categories = [...catMap.values()].sort((a, b) => b.masuk + b.keluar - (a.masuk + a.keluar))
 
-  const monthIurans = iurans.filter((i) => i.period === monthStart && i.status === 'paid')
-  const monthIuranTotal = monthIurans.length * (info?.iuran_amount ?? 0)
+  // Rekap per anggota (iuran)
+  const memberMap = new Map<string, { name: string; total: number; paid: number; amount: number }>()
+  ;(iurans ?? []).forEach((i) => {
+    const name = (i.members as { name?: string }[] | null)?.[0]?.name ?? '—'
+    const cur = memberMap.get(i.member_id) ?? { name, total: 0, paid: 0, amount: 0 }
+    cur.total += 1
+    cur.amount += i.amount
+    if (i.status === 'paid') cur.paid += i.amount
+    memberMap.set(i.member_id, cur)
+  })
+  const memberRecap = [...memberMap.values()].sort((a, b) => b.paid - a.paid)
 
-  const yearTx = txs.filter((t) => t.transaction_date.startsWith(String(year)))
-  const yearIn = yearTx.filter((t) => t.type === 'income').reduce((a, t) => a + t.amount, 0)
-  const yearOut = yearTx.filter((t) => t.type === 'expense').reduce((a, t) => a + t.amount, 0)
-
-  const categoryBreakdown = useMemo(() => {
-    const map = new Map<string, number>()
-    monthTx.forEach((t) => {
-      const name = t.categories?.name ?? 'Lain-lain'
-      map.set(name, (map.get(name) ?? 0) + t.amount)
-    })
-    return Array.from(map.entries()).sort((a, b) => b[1] - a[1])
-  }, [monthTx])
-
-  const iuranByMember = useMemo(() => {
-    const map = new Map<string, { name: string; paid: number; total: number }>()
-    members.forEach((m) => map.set(m.id, { name: m.name, paid: 0, total: 0 }))
-    iurans.forEach((i) => {
-      const entry = map.get(i.member_id)
-      if (!entry) return
-      entry.total++
-      if (i.status === 'paid') entry.paid++
-    })
-    return Array.from(map.entries())
-  }, [members, iurans])
-
-  if (loading) return <PageLoader />
+  const totalMembers = members?.length ?? 0
+  const activeMembers = members?.filter((m) => m.is_active).length ?? 0
 
   return (
     <div>
       <PageHeader
         title="Laporan"
-        subtitle={`Periode: ${formatMonthLabel(monthStart)} ${year}`}
-      >
-        <div className="flex gap-2">
-          <select
-            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm"
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-          >
-            {Array.from({ length: 3 }, (_, i) => year - 1 + i).map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-          <select
-            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm"
-            value={month}
-            onChange={(e) => setMonth(Number(e.target.value))}
-          >
-            {Array.from({ length: 12 }, (_, i) => (
-              <option key={i} value={i}>{formatMonthLabel(firstDayOfMonth(year, i))}</option>
-            ))}
-          </select>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              exportCSV(
-                `laporan-${monthStart}.csv`,
-                [
-                  ['Bulan', 'Pemasukan', 'Pengeluaran', 'Saldo', 'Iuran Terkumpul'],
-                  [formatMonthLabel(monthStart), String(monthIn), String(monthOut), String(monthIn - monthOut), String(monthIuranTotal)],
-                ]
-              )
-            }
-          >
-            Unduh CSV
-          </Button>
-        </div>
-      </PageHeader>
+        subtitle="Rekapitulasi keuangan kelas"
+        action={
+          <ExportCsvButton
+            rows={tx.map((t) => ({
+              date: t.transaction_date,
+              type: t.type,
+              category: t.categories?.[0]?.name ?? '',
+              description: t.description,
+              amount: t.amount,
+            }))}
+          />
+        }
+      />
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="p-4">
-          <p className="text-xs uppercase tracking-wide text-zinc-400">Pemasukan</p>
-          <p className="mt-1 text-lg font-bold text-emerald-600">{formatIDR(monthIn)}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs uppercase tracking-wide text-zinc-400">Pengeluaran</p>
-          <p className="mt-1 text-lg font-bold text-red-600">{formatIDR(monthOut)}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs uppercase tracking-wide text-zinc-400">Saldo Bulan Ini</p>
-          <p className="mt-1 text-lg font-bold text-zinc-900">{formatIDR(monthIn - monthOut)}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs uppercase tracking-wide text-zinc-400">Iuran Terkumpul</p>
-          <p className="mt-1 text-lg font-bold text-zinc-900">{formatIDR(monthIuranTotal)}</p>
-        </Card>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <SummaryCard label="Saldo Kas" value={formatRupiah(balance)} tone="maroon" />
+        <SummaryCard
+          label="Total Pemasukan"
+          value={formatRupiah(tx.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0))}
+          tone="green"
+        />
+        <SummaryCard
+          label="Total Pengeluaran"
+          value={formatRupiah(tx.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0))}
+          tone="red"
+        />
+        <SummaryCard
+          label="Anggota (Aktif/Total)"
+          value={`${activeMembers}/${totalMembers}`}
+          tone="zinc"
+        />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
         <Card>
-          <CardHeader title="Rincian Pengeluaran per Kategori" />
-          {categoryBreakdown.length === 0 ? (
-            <CardContent><p className="py-4 text-center text-sm text-zinc-400">Nggak ada pengeluaran bulan ini.</p></CardContent>
-          ) : (
-            <CardContent className="p-0">
-              <ul className="divide-y divide-zinc-100">
-                {categoryBreakdown.map(([name, total]) => (
-                  <li key={name} className="flex items-center justify-between px-5 py-3">
-                    <span className="text-sm text-zinc-700">{name}</span>
-                    <span className="text-sm font-semibold text-red-600">{formatIDR(total)}</span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          )}
+          <CardHeader title="Rekap Bulanan" />
+          <CardContent className="p-0">
+            {monthly.length === 0 ? (
+              <EmptyState title="Belum ada data" description="Belum ada transaksi yang dicatat." />
+            ) : (
+              <Table
+                head={['Bulan', 'Pemasukan', 'Pengeluaran', 'Selisih']}
+                rows={monthly.map((m) => [
+                  formatMonthPeriod(`${m.key}-01`),
+                  fmt(m.masuk),
+                  fmt(m.keluar),
+                  m.selisih >= 0 ? fmt(m.selisih) : `-${fmt(Math.abs(m.selisih))}`,
+                ])}
+              />
+            )}
+          </CardContent>
         </Card>
 
         <Card>
+          <CardHeader title="Rekap per Kategori" />
+          <CardContent className="p-0">
+            {categories.length === 0 ? (
+              <EmptyState title="Belum ada data" description="Belum ada transaksi yang dicatat." />
+            ) : (
+              <Table
+                head={['Kategori', 'Pemasukan', 'Pengeluaran']}
+                rows={categories.map((c) => [
+                  c.name,
+                  fmt(c.masuk),
+                  fmt(c.keluar),
+                ])}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
           <CardHeader title="Rekap Iuran per Anggota" />
-          {iuranByMember.length === 0 ? (
-            <CardContent><p className="py-4 text-center text-sm text-zinc-400">Belum ada data iuran.</p></CardContent>
-          ) : (
-            <CardContent className="p-0">
-              <ul className="divide-y divide-zinc-100 md:hidden">
-                {iuranByMember.map(([id, d]) => (
-                  <li key={id} className="flex items-center justify-between gap-3 px-5 py-3.5">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-zinc-800">{d.name}</p>
-                      <p className="text-xs text-zinc-500">
-                        Lunas <span className="font-semibold text-emerald-600">{d.paid}</span> dari{' '}
-                        {d.total}
-                      </p>
-                    </div>
-                    {d.total > 0 ? (
-                      <Badge variant="green">{Math.round((d.paid / d.total) * 100)}%</Badge>
-                    ) : (
-                      <Badge variant="zinc">—</Badge>
-                    )}
-                  </li>
-                ))}
-              </ul>
-              <div className="hidden overflow-x-auto md:block">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-400">
-                      <th className="px-4 py-3 font-medium">Nama</th>
-                      <th className="px-4 py-3 text-right font-medium">Lunas</th>
-                      <th className="px-4 py-3 text-right font-medium">Total</th>
-                      <th className="px-4 py-3 text-right font-medium">%</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-100">
-                    {iuranByMember.map(([id, d]) => (
-                      <tr key={id}>
-                        <td className="px-4 py-3 font-medium text-zinc-800">{d.name}</td>
-                        <td className="px-4 py-3 text-right text-emerald-600">{d.paid}</td>
-                        <td className="px-4 py-3 text-right">{d.total}</td>
-                        <td className="px-4 py-3 text-right">
-                          {d.total > 0 ? (
-                            <Badge variant="green">{Math.round((d.paid / d.total) * 100)}%</Badge>
-                          ) : (
-                            <Badge variant="zinc">—</Badge>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          )}
-        </Card>
-      </div>
-
-      <Card className="mt-6">
-        <CardHeader title="Rekap Tahunan" subtitle={String(year)} />
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-400">
-                  <th className="px-4 py-3 font-medium">Bulan</th>
-                  <th className="px-4 py-3 text-right font-medium">Pemasukan</th>
-                  <th className="px-4 py-3 text-right font-medium">Pengeluaran</th>
-                  <th className="px-4 py-3 text-right font-medium">Saldo</th>
-                  <th className="px-4 py-3 text-right font-medium">Iuran</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {Array.from({ length: 12 }, (_, i) => {
-                  const mStart = periodFromDate(new Date(year, i, 1))
-                  const mEnd = periodFromDate(new Date(year, i + 1, 1))
-                  const mTx = txs.filter((t) => t.transaction_date >= mStart && t.transaction_date < mEnd)
-                  const mIn = mTx.filter((t) => t.type === 'income').reduce((a, t) => a + t.amount, 0)
-                  const mOut = mTx.filter((t) => t.type === 'expense').reduce((a, t) => a + t.amount, 0)
-                  const mIuran = iurans.filter((ir) => ir.period === mStart && ir.status === 'paid').length * (info?.iuran_amount ?? 0)
+          <CardContent className="p-0">
+            {memberRecap.length === 0 ? (
+              <EmptyState title="Belum ada data" description="Belum ada catatan iuran." />
+            ) : (
+              <div className="divide-y divide-zinc-100">
+                {memberRecap.map((m) => {
+                  const pct = m.amount > 0 ? Math.round((m.paid / m.amount) * 100) : 0
                   return (
-                    <tr key={i} className="hover:bg-zinc-50">
-                      <td className="px-4 py-3 font-medium text-zinc-700">{formatMonthShort(i)}</td>
-                      <td className="px-4 py-3 text-right text-emerald-600">{mIn > 0 ? formatIDR(mIn) : '—'}</td>
-                      <td className="px-4 py-3 text-right text-red-600">{mOut > 0 ? formatIDR(mOut) : '—'}</td>
-                      <td className="px-4 py-3 text-right font-semibold">{formatIDR(mIn - mOut)}</td>
-                      <td className="px-4 py-3 text-right">{mIuran > 0 ? formatIDR(mIuran) : '—'}</td>
-                    </tr>
+                    <div key={m.name} className="flex items-center justify-between gap-3 px-5 py-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-ink">{m.name}</p>
+                        <p className="text-xs text-zinc-500">
+                          {m.total} bulan · {formatRupiah(m.paid)} dari {formatRupiah(m.amount)}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-3">
+                        <div className="h-2 w-24 overflow-hidden rounded-full bg-zinc-200">
+                          <div className="h-full bg-green-600" style={{ width: `${pct}%` }} />
+                        </div>
+                        <Badge variant={pct === 100 ? 'green' : 'zinc'}>{pct}%</Badge>
+                      </div>
+                    </div>
                   )
                 })}
-                <tr className="border-t-2 border-zinc-300 bg-zinc-50">
-                  <td className="px-4 py-3 font-bold text-zinc-900">Total</td>
-                  <td className="px-4 py-3 text-right font-bold text-emerald-600">{formatIDR(yearIn)}</td>
-                  <td className="px-4 py-3 text-right font-bold text-red-600">{formatIDR(yearOut)}</td>
-                  <td className="px-4 py-3 text-right font-bold">{formatIDR(yearIn - yearOut)}</td>
-                  <td className="px-4 py-3 text-right font-bold">{formatIDR(iurans.filter((ir) => ir.status === 'paid').length * (info?.iuran_amount ?? 0))}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+function fmt(n: number) {
+  return formatRupiah(n)
+}
+
+function SummaryCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: string
+  tone: 'maroon' | 'green' | 'red' | 'zinc'
+}) {
+  const tones: Record<string, string> = {
+    maroon: 'text-maroon-700',
+    green: 'text-green-600',
+    red: 'text-red-700',
+    zinc: 'text-zinc-800',
+  }
+  return (
+    <Card>
+      <CardContent className="px-4 py-4">
+        <p className="text-xs text-zinc-500">{label}</p>
+        <p className={`mt-1 truncate font-display text-base font-semibold md:text-lg ${tones[tone]}`}>
+          {value}
+        </p>
+      </CardContent>
+    </Card>
+  )
+}
+
+function Table({ head, rows }: { head: string[]; rows: (string | number)[][] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500">
+            {head.map((h) => (
+              <th key={h} className="px-5 py-3 font-medium">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-zinc-100">
+          {rows.map((r, i) => (
+            <tr key={i} className="hover:bg-zinc-50">
+              {r.map((c, j) => (
+                <td key={j} className="px-5 py-3 text-ink">
+                  {c}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

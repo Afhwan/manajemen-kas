@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import type { UserRole } from '@/lib/types'
-import type { SessionUser } from '@/lib/session'
+import type { SessionUser } from '@/lib/types'
 
 export async function getServerSession(): Promise<SessionUser | null> {
   const client = await createClient()
@@ -13,10 +12,12 @@ export async function getServerSession(): Promise<SessionUser | null> {
 
   if (!data) return null
 
+  const row = data as { username?: string; role?: string }
+
   return {
     id: user.id,
-    username: (data.username as string | undefined) ?? user.email,
+    username: row.username ?? user.email,
     email: user.email,
-    role: (data.role as UserRole | undefined) ?? 'bendahara',
+    role: (row.role as SessionUser['role']) ?? 'bendahara',
   }
 }

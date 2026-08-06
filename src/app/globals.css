@@ -1,48 +1,66 @@
 @import "tailwindcss";
 
 :root {
-  --background: #faf7f5;
-  --foreground: #2a1b19;
+  --paper: #f7f1e8;
+  --paper-deep: #efe5d6;
+  --ink: #2e1f1a;
+  --maroon: #8c2f39;
+  --maroon-dark: #72232c;
+  --green: #3d6b4f;
+  --gold: #b98a2f;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
   --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
 }
 
 @theme {
-  --color-brand-50: #fdf3f4;
-  --color-brand-100: #fbe7e9;
-  --color-brand-200: #f7cfd4;
-  --color-brand-300: #f1a9b1;
-  --color-brand-400: #e77a88;
-  --color-brand-500: #d94a5d;
-  --color-brand-600: #c02f45;
-  --color-brand-700: #a1253a;
-  --color-brand-800: #872235;
-  --color-brand-900: #741f31;
-  --color-brand-950: #400d19;
-
-  --color-zinc-50: #faf7f5;
-  --color-zinc-100: #f4efec;
-  --color-zinc-200: #e8e0dc;
-  --color-zinc-300: #d5c8c2;
-  --color-zinc-400: #a8988f;
-  --color-zinc-500: #86736a;
-  --color-zinc-600: #6b5951;
-  --color-zinc-700: #574840;
-  --color-zinc-800: #3d312b;
-  --color-zinc-900: #2a201c;
-  --color-zinc-950: #1a1310;
+  --color-paper: var(--paper);
+  --color-paper-deep: var(--paper-deep);
+  --color-ink: var(--ink);
+  --color-maroon-50: #fbf3f3;
+  --color-maroon-100: #f5e4e5;
+  --color-maroon-200: #e9c6c9;
+  --color-maroon-300: #d89ca1;
+  --color-maroon-400: #c46f77;
+  --color-maroon-500: #a94a55;
+  --color-maroon-600: #8c2f39;
+  --color-maroon-700: #72232c;
+  --color-maroon-800: #5a1d24;
+  --color-maroon-900: #42171d;
+  --color-maroon-950: #2a0e12;
+  --color-green-600: var(--green);
+  --color-gold-600: var(--gold);
+  --color-zinc-50: #faf6f0;
+  --color-zinc-100: #f2ece3;
+  --color-zinc-200: #e4dbcd;
+  --color-zinc-300: #cfc1ad;
+  --color-zinc-400: #ab9884;
+  --color-zinc-500: #8a7662;
+  --color-zinc-600: #6e5c4b;
+  --color-zinc-700: #584a3d;
+  --color-zinc-800: #41362c;
+  --color-zinc-900: #2e261f;
+  --color-zinc-950: #1c1612;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--paper);
+  color: var(--ink);
   font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Garis halus ala kertas buku */
+.ledger-stripes {
+  background-image: repeating-linear-gradient(
+    180deg,
+    transparent 0px,
+    transparent 27px,
+    rgba(140, 47, 57, 0.05) 28px
+  );
 }
 
 @keyframes sheet-up {
@@ -56,4 +74,13 @@ body {
 
 .sheet-up {
   animation: sheet-up 0.25s ease-out;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+  .no-print {
+    display: none !important;
+  }
 }

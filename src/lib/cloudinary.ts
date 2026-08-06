@@ -1,37 +1,48 @@
 import imageCompression from 'browser-image-compression'
 
+const MAX_SIZE_MB = 0.3
+const MAX_WIDTH_OR_HEIGHT = 1000
+
 export async function compressImage(file: File): Promise<File> {
   return imageCompression(file, {
-    maxSizeMB: 0.3,
-    maxWidthOrHeight: 1000,
+    maxSizeMB: MAX_SIZE_MB,
+    maxWidthOrHeight: MAX_WIDTH_OR_HEIGHT,
     useWebWorker: true,
   })
 }
 
-export async function uploadProofToCloudinary(
-  file: File
-): Promise<{ publicId: string; url: string }> {
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
-  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+export async function uploadProof(file: File): Promise<{ publicId: string; url: string }> {
+  const compressed = await compressImage(file)
 
-  if (!cloudName || !uploadPreset) {
-    throw new Error('Konfigurasi Cloudinary belum diisi (env)')
-  }
-
-  const form = new FormData()
-  form.append('file', file)
-  form.append('upload_preset', uploadPreset)
-  form.append('folder', 'kas-kelas')
+  const formData = new FormData()
+  formData.append('file', compressed)
+  formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!)
 
   const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-    { method: 'POST', body: form }
+    `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
+    { method: 'POST', body: formData }
   )
-  const data = await res.json()
 
   if (!res.ok) {
-    throw new Error(data?.error?.message ?? 'Upload bukti gagal')
+    const body = await res.text()
+    throw new Error(`Gagal mengunggah bukti: ${body}`)
   }
 
-  return { publicId: data.public_id, url: data.secure_url }
+  const data = await res.json()
+  return { publicId: data.public_id as string, url: data.secure_url as string }
+}
+
+export async function deleteProof(publicId: string): Promise<void> {
+  try {
+    const res = await fetch(
+      `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/destroy`,
+      { method: 'POST', body: new URLSearchParams({ public_id: publicId }) }
+    )
+    if (!res.ok) {
+      // Penghapusan gagal tidak menggagalkan operasi utama.
+      console.error('Gagal menghapus bukti di Cloudinary:', res.status)
+    }
+  } catch (err) {
+    console.error('Gagal menghapus bukti di Cloudinary:', err)
+  }
 }

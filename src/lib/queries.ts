@@ -53,17 +53,10 @@ export async function fetchIurans(period?: string) {
   let query = supabase
     .from('iurans')
     .select('*, members(id, name)')
-    .order('period', { ascending: false })
+    .order('members(name)', { ascending: true })
 
   if (period) query = query.eq('period', period)
 
   const { data } = await query
   return (data as Iuran[]) ?? []
-}
-
-export function computeBalance(transactions: Transaction[]) {
-  return transactions.reduce(
-    (acc, t) => (t.type === 'income' ? acc + t.amount : acc - t.amount),
-    0
-  )
 }

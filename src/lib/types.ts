@@ -1,7 +1,7 @@
 export type CategoryType = 'income' | 'expense'
 export type TransactionType = 'income' | 'expense'
 export type IuranStatus = 'paid' | 'unpaid'
-export type UserRole = 'bendahara' | 'walikelas'
+export type UserRole = 'bendahara' | 'walikelas' | 'superadmin'
 
 export interface AppUser {
   id: string
@@ -58,4 +58,16 @@ export interface Iuran {
   transaction_id: string | null
   created_at: string
   members?: { id: string; name: string } | null
+}
+
+export interface SessionUser {
+  id: string
+  username: string
+  email: string
+  role: UserRole
+}
+
+export interface AppUserRow {
+  username: string
+  role: UserRole
 }

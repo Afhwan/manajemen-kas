@@ -12,11 +12,12 @@ export async function addMember(formData: FormData) {
   const name = String(formData.get('name') ?? '').trim()
   const nis = String(formData.get('nis') ?? '').trim() || null
 
-  if (!name) return { error: 'Nama siswa harus diisi dong' }
+  if (!name) return { error: 'Nama siswa wajib diisi.' }
 
   const { error } = await supabase.from('members').insert({ name, nis })
   if (error) return { error: error.message }
   revalidatePath('/members')
+  revalidatePath('/dashboard')
 }
 
 export async function updateMember(formData: FormData) {
@@ -28,11 +29,12 @@ export async function updateMember(formData: FormData) {
   const name = String(formData.get('name') ?? '').trim()
   const nis = String(formData.get('nis') ?? '').trim() || null
 
-  if (!name) return { error: 'Nama siswa harus diisi dong' }
+  if (!name) return { error: 'Nama siswa wajib diisi.' }
 
   const { error } = await supabase.from('members').update({ name, nis }).eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/members')
+  revalidatePath('/dashboard')
 }
 
 export async function setMemberActive(id: string, isActive: boolean) {
@@ -46,4 +48,5 @@ export async function setMemberActive(id: string, isActive: boolean) {
     .eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/members')
+  revalidatePath('/dashboard')
 }

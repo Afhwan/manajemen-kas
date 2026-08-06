@@ -1,49 +1,45 @@
 'use client'
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react'
-import { cn } from '@/lib/utils'
+import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react'
 
-type ToastType = 'success' | 'error'
-interface Toast {
+interface ToastItem {
   id: number
   message: string
-  type: ToastType
+  type: 'success' | 'error'
 }
 
-const ToastContext = createContext<{
-  toast: (message: string, type?: ToastType) => void
-}>({ toast: () => {} })
+const ToastContext = createContext<{ toast: (msg: string, type?: 'success' | 'error') => void }>({
+  toast: () => {},
+})
+
+export function useToast() {
+  return useContext(ToastContext)
+}
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [toasts, setToasts] = useState<Toast[]>([])
-  const idRef = useRef(0)
+  const [items, setItems] = useState<ToastItem[]>([])
+  const counter = useRef(0)
 
-  const toast = useCallback((message: string, type: ToastType = 'success') => {
-    const id = ++idRef.current
-    setToasts((prev) => [...prev, { id, message, type }])
+  const toast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    const id = ++counter.current
+    setItems((prev) => [...prev, { id, message, type }])
     setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id))
+      setItems((prev) => prev.filter((t) => t.id !== id))
     }, 3500)
   }, [])
 
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-[100] flex w-72 flex-col gap-2">
-        {toasts.map((t) => (
+      <div className="pointer-events-none fixed inset-x-0 top-4 z-[60] flex flex-col items-center gap-2 px-4">
+        {items.map((t) => (
           <div
             key={t.id}
-            className={cn(
-              'rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg',
-              t.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'
-            )}
+            className={`pointer-events-auto w-full max-w-sm rounded-lg border px-4 py-3 text-sm shadow-lg ${
+              t.type === 'error'
+                ? 'border-red-200 bg-red-50 text-red-800'
+                : 'border-green-200 bg-green-50 text-green-800'
+            }`}
           >
             {t.message}
           </div>
@@ -51,8 +47,4 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       </div>
     </ToastContext.Provider>
   )
-}
-
-export function useToast() {
-  return useContext(ToastContext)
 }

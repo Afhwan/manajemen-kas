@@ -8,38 +8,39 @@ export async function login(formData: FormData) {
   const password = String(formData.get('password') ?? '')
 
   if (!identifier || !password) {
-    return { error: 'Username sama password wajib diisi dong' }
+    return { error: 'Username dan password wajib diisi.' }
   }
 
   const supabase = await createClient()
 
   let email = ''
   if (identifier.includes('@')) {
-    // Bisa langsung pakai email penuh.
     email = identifier.toLowerCase()
   } else {
-    // Pakai username -> cari email lewat fungsi di database.
     const { data, error } = await supabase.rpc('get_email_by_username', {
       p_username: identifier.toLowerCase(),
     })
     if (error) {
-      return {
-        error:
-          'Setup belum lengkap nih — pastikan file supabase/migration-username-role.sql sudah dijalankan di Supabase SQL Editor.',
-      }
+      return { error: 'Terjadi kesalahan pada server. Silakan coba lagi.' }
     }
     email = (data as string | null) ?? ''
   }
 
   if (!email) {
-    return { error: 'Username/email belum didaftarin. Cek dulu di Supabase Auth → Users.' }
+    return { error: 'Username tidak terdaftar.' }
   }
 
   const { error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
-    return { error: 'Username/email atau password-nya kurang tepat nih' }
+    return { error: 'Username atau password salah.' }
   }
 
   redirect('/dashboard')
+}
+
+export async function logout() {
+  const supabase = await createClient()
+  await supabase.auth.signOut()
+  redirect('/login')
 }

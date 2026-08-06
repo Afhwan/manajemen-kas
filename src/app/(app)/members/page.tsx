@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { addMember, setMemberActive, updateMember } from '@/app/actions/members'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -17,20 +17,24 @@ import type { Member } from '@/lib/types'
 export default function MembersPage() {
   const { toast } = useToast()
   const [members, setMembers] = useState<Member[] | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Member | null>(null)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    const data = await fetchMembers(true)
-    setMembers(data)
-  }, [])
-
   useEffect(() => {
+    let ignore = false
+    async function load() {
+      const data = await fetchMembers(true)
+      if (!ignore) setMembers(data)
+    }
     load()
-  }, [load])
+    return () => {
+      ignore = true
+    }
+  }, [refreshKey])
 
   const filtered = useMemo(() => {
     if (!members) return []
@@ -59,9 +63,7 @@ export default function MembersPage() {
     setFormError(null)
     const formData = new FormData(e.currentTarget)
 
-    const result = editing
-      ? await updateMember(formData)
-      : await addMember(formData)
+    const result = editing ? await updateMember(formData) : await addMember(formData)
 
     if (result && 'error' in result) {
       setFormError(result.error as string)
@@ -71,8 +73,8 @@ export default function MembersPage() {
 
     setModalOpen(false)
     setSaving(false)
-    toast(editing ? 'Anggota berhasil diupdate' : 'Anggota berhasil ditambah')
-    load()
+    toast(editing ? 'Data anggota berhasil diperbarui.' : 'Anggota berhasil ditambahkan.')
+    setRefreshKey((k) => k + 1)
   }
 
   async function handleToggleActive(m: Member) {
@@ -81,8 +83,8 @@ export default function MembersPage() {
       toast(result.error as string, 'error')
       return
     }
-    toast(m.is_active ? 'Anggota dinonaktifkan' : 'Anggota diaktifkan lagi')
-    load()
+    toast(m.is_active ? 'Anggota dinonaktifkan.' : 'Anggota diaktifkan kembali.')
+    setRefreshKey((k) => k + 1)
   }
 
   if (!members) return <PageLoader />
@@ -93,10 +95,9 @@ export default function MembersPage() {
     <div>
       <PageHeader
         title="Anggota"
-        subtitle={`${activeCount} anak aktif dari ${members.length} total`}
-      >
-        <Button onClick={openAdd}>Tambah Anggota</Button>
-      </PageHeader>
+        subtitle={`${activeCount} anggota aktif dari ${members.length} total`}
+        action={<Button onClick={openAdd}>Tambah Anggota</Button>}
+      />
 
       <div className="mb-4 max-w-sm">
         <Input
@@ -110,11 +111,11 @@ export default function MembersPage() {
       <Card>
         {filtered.length === 0 ? (
           <EmptyState
-            title={search ? 'Nggak ketemu' : 'Belum ada anggota'}
+            title={search ? 'Tidak ditemukan' : 'Belum ada anggota'}
             description={
               search
-                ? 'Coba ganti kata kunci pencariannya.'
-                : 'Gas tambah anggota pertama biar bisa mulai catat iuran.'
+                ? 'Coba gunakan kata kunci lain.'
+                : 'Tambahkan anggota pertama agar dapat mencatat iuran.'
             }
             action={!search ? <Button onClick={openAdd}>Tambah Anggota</Button> : undefined}
           />
@@ -124,7 +125,7 @@ export default function MembersPage() {
               {filtered.map((m) => (
                 <li key={m.id} className="flex items-center justify-between gap-3 px-5 py-4">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-zinc-800">{m.name}</p>
+                    <p className="truncate text-sm font-medium text-ink">{m.name}</p>
                     <p className="text-xs text-zinc-500">{m.nis ?? '—'}</p>
                     <div className="mt-1">
                       {m.is_active ? (
@@ -148,7 +149,7 @@ export default function MembersPage() {
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-400">
+                  <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500">
                     <th className="px-5 py-3 font-medium">Nama</th>
                     <th className="px-5 py-3 font-medium">NIS</th>
                     <th className="px-5 py-3 font-medium">Status</th>
@@ -158,7 +159,7 @@ export default function MembersPage() {
                 <tbody className="divide-y divide-zinc-100">
                   {filtered.map((m) => (
                     <tr key={m.id} className="hover:bg-zinc-50">
-                      <td className="px-5 py-3 font-medium text-zinc-800">{m.name}</td>
+                      <td className="px-5 py-3 font-medium text-ink">{m.name}</td>
                       <td className="px-5 py-3 text-zinc-500">{m.nis ?? '—'}</td>
                       <td className="px-5 py-3">
                         {m.is_active ? (
@@ -200,18 +201,20 @@ export default function MembersPage() {
           <Field label="Nama Lengkap">
             <Input name="name" required defaultValue={editing?.name ?? ''} placeholder="Nama siswa" />
           </Field>
-          <Field label="NIS" hint="Boleh kosong">
+          <Field label="NIS" hint="Boleh dikosongkan">
             <Input name="nis" defaultValue={editing?.nis ?? ''} placeholder="Contoh: 2026001" />
           </Field>
           {formError ? (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+              {formError}
+            </p>
           ) : null}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>
               Batal
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving ? 'Nyimpen…' : 'Simpen'}
+              {saving ? 'Menyimpan…' : 'Simpan'}
             </Button>
           </div>
         </form>

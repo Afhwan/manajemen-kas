@@ -1,189 +1,197 @@
 'use client'
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, type FormEvent } from 'react'
+import { addCategory, toggleCategoryActive, updateClassInfo } from '@/app/actions/settings'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { Field, Input, Select } from '@/components/ui/Field'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { PageLoader } from '@/components/ui/Spinner'
 import { useToast } from '@/components/ui/Toast'
-import { updateClassInfo, addCategory, deleteCategory, toggleCategoryActive } from '@/app/actions/settings'
-import { createClient } from '@/lib/supabase/client'
-import { getSessionUser, type SessionUser } from '@/lib/session'
-import { initials } from '@/lib/utils'
-import { fetchClassInfo, fetchCategories } from '@/lib/queries'
+import { fetchCategories, fetchClassInfo } from '@/lib/queries'
 import type { Category, ClassInfo } from '@/lib/types'
 
 export default function SettingsPage() {
   const { toast } = useToast()
-  const router = useRouter()
-  const [info, setInfo] = useState<ClassInfo | null>(null)
+  const [classInfo, setClassInfo] = useState<ClassInfo | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
-  const [user, setUser] = useState<SessionUser | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [refreshKey, setRefreshKey] = useState(0)
   const [saving, setSaving] = useState(false)
-  const [catAdding, setCatAdding] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [catName, setCatName] = useState('')
+  const [catType, setCatType] = useState<'income' | 'expense'>('income')
 
   useEffect(() => {
-    getSessionUser().then(setUser).catch(() => setUser(null))
-  }, [])
-
-  const load = useCallback(async () => {
-    const [i, c] = await Promise.all([fetchClassInfo(), fetchCategories()])
-    setInfo(i)
-    setCategories(c)
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
+    let ignore = false
+    async function load() {
+      const [info, cats] = await Promise.all([fetchClassInfo(), fetchCategories()])
+      if (ignore) return
+      setClassInfo(info)
+      setCategories(cats)
+    }
     load()
-  }, [load])
+    return () => {
+      ignore = true
+    }
+  }, [refreshKey])
 
-  async function handleInfoUpdate(e: FormEvent<HTMLFormElement>) {
+  async function handleClassInfo(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSaving(true)
-    const result = await updateClassInfo(new FormData(e.currentTarget))
+    setFormError(null)
+    const formData = new FormData(e.currentTarget)
+    const result = await updateClassInfo(formData)
     if (result && 'error' in result) {
-      toast(result.error, 'error')
-    } else {
-      toast('Pengaturan kelas keupdate')
-      load()
+      setFormError(result.error as string)
+      setSaving(false)
+      return
     }
     setSaving(false)
+    toast('Pengaturan kelas berhasil disimpan.')
+    setRefreshKey((k) => k + 1)
   }
 
   async function handleAddCategory(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setCatAdding(true)
-    const result = await addCategory(new FormData(e.currentTarget))
+    const formData = new FormData()
+    formData.set('name', catName)
+    formData.set('type', catType)
+    const result = await addCategory(formData)
     if (result && 'error' in result) {
-      toast(result.error, 'error')
-    } else {
-      toast('Kategori berhasil ditambah')
-      load()
+      toast(result.error as string, 'error')
+      return
     }
-    setCatAdding(false)
+    setCatName('')
+    toast('Kategori berhasil ditambahkan.')
+    setRefreshKey((k) => k + 1)
   }
 
-  async function handleToggle(id: string, active: boolean) {
-    const result = await toggleCategoryActive(id, active)
+  async function handleToggleCategory(c: Category) {
+    const result = await toggleCategoryActive(c.id, !c.is_active)
     if (result && 'error' in result) {
-      toast(result.error, 'error')
-    } else {
-      toast(`Kategori ${active ? 'diaktifin' : 'dinonaktifin'}`)
-      load()
+      toast(result.error as string, 'error')
+      return
     }
+    toast(c.is_active ? 'Kategori dinonaktifkan.' : 'Kategori diaktifkan.')
+    setRefreshKey((k) => k + 1)
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('Yakin hapus kategori ini?')) return
-    const result = await deleteCategory(id)
-    if (result && 'error' in result) {
-      toast(result.error, 'error')
-    } else {
-      toast('Kategori kehapus')
-      load()
-    }
-  }
+  if (!classInfo) return <PageLoader />
 
-  if (loading) return <PageLoader />
+  const incomeCats = categories.filter((c) => c.type === 'income')
+  const expenseCats = categories.filter((c) => c.type === 'expense')
 
   return (
     <div>
-      <PageHeader title="Pengaturan" subtitle="Atur kelas, iuran, dan kategori" />
+      <PageHeader title="Pengaturan" subtitle="Kelola informasi kelas dan kategori" />
 
-      <form onSubmit={handleInfoUpdate} className="mb-8 space-y-4">
+      <div className="grid gap-5 lg:grid-cols-2">
         <Card>
           <CardHeader title="Informasi Kelas" />
-          <CardContent className="space-y-4">
-            <Field label="Nama Kelas">
-              <Input name="class_name" required defaultValue={info?.class_name ?? ''} />
-            </Field>
-            <Field label="Tahun Ajaran">
-              <Input name="academic_year" required defaultValue={info?.academic_year ?? ''} />
-            </Field>
-            <Field label="Nominal Iuran Bulanan (Rp)">
-              <Input name="iuran_amount" type="number" required min={0} defaultValue={info?.iuran_amount ?? 10000} />
-            </Field>
-            <Button type="submit" disabled={saving}>
-              {saving ? 'Nyimpen…' : 'Simpen'}
-            </Button>
+          <CardContent>
+            <form onSubmit={handleClassInfo} className="space-y-4">
+              <Field label="Nama Kelas">
+                <Input
+                  name="class_name"
+                  required
+                  defaultValue={classInfo.class_name}
+                  placeholder="Contoh: X RPL 1"
+                />
+              </Field>
+              <Field label="Tahun Ajaran">
+                <Input
+                  name="academic_year"
+                  required
+                  defaultValue={classInfo.academic_year}
+                  placeholder="Contoh: 2026/2027"
+                />
+              </Field>
+              <Field label="Nominal Iuran (Rp)" hint="Iuran per siswa setiap bulan">
+                <Input
+                  type="number"
+                  name="iuran_amount"
+                  min={0}
+                  required
+                  defaultValue={classInfo.iuran_amount}
+                />
+              </Field>
+              {formError ? (
+                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                  {formError}
+                </p>
+              ) : null}
+              <div className="flex justify-end">
+                <Button type="submit" disabled={saving}>
+                  {saving ? 'Menyimpan…' : 'Simpan'}
+                </Button>
+              </div>
+            </form>
           </CardContent>
         </Card>
-      </form>
 
-      <Card>
-        <CardHeader title="Kategori Transaksi" />
-        <CardContent className="space-y-4">
-          <form onSubmit={handleAddCategory} className="flex gap-3">
-            <Field label="Nama" className="flex-1">
-              <Input name="name" required placeholder="Contoh: Transport" />
-            </Field>
-            <Field label="Tipe" className="w-36">
-              <Select name="type" defaultValue="expense">
-                <option value="income">Pemasukan</option>
-                <option value="expense">Pengeluaran</option>
+        <Card>
+          <CardHeader title="Kategori Transaksi" />
+          <CardContent>
+            <form onSubmit={handleAddCategory} className="mb-4 flex gap-2">
+              <Input
+                value={catName}
+                onChange={(e) => setCatName(e.target.value)}
+                placeholder="Nama kategori baru"
+                className="flex-1"
+              />
+              <Select value={catType} onChange={(e) => setCatType(e.target.value as 'income' | 'expense')}>
+                <option value="income">Masuk</option>
+                <option value="expense">Keluar</option>
               </Select>
-            </Field>
-            <Button type="submit" disabled={catAdding} className="self-end">
-              {catAdding ? 'Nambahin…' : 'Tambah'}
-            </Button>
-          </form>
+              <Button type="submit" disabled={!catName.trim()}>
+                Tambah
+              </Button>
+            </form>
 
-          <ul className="divide-y divide-zinc-100">
-            {categories.map((c) => (
-              <li key={c.id} className="flex items-center justify-between px-2 py-2.5">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-zinc-800">{c.name}</span>
-                  <Badge variant={c.type === 'income' ? 'green' : 'red'}>
-                    {c.type === 'income' ? 'Pemasukan' : 'Pengeluaran'}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleToggle(c.id, !c.is_active)}
-                  >
-                    {c.is_active ? 'Nonaktifkan' : 'Aktifkan'}
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => handleDelete(c.id)}>
-                    Hapus
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
+            <CategoryGroup title="Pemasukan" cats={incomeCats} onToggle={handleToggleCategory} />
+            <CategoryGroup title="Pengeluaran" cats={expenseCats} onToggle={handleToggleCategory} />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
 
-      <Card className="mt-6">
-        <CardHeader title="Akun" subtitle="Informasi login yang dipakai" />
-        <CardContent className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">
-              {user ? initials(user.username) : '?'}
+function CategoryGroup({
+  title,
+  cats,
+  onToggle,
+}: {
+  title: string
+  cats: Category[]
+  onToggle: (c: Category) => void
+}) {
+  if (cats.length === 0) {
+    return (
+      <div className="mb-4">
+        <p className="mb-1 text-sm font-medium text-zinc-700">{title}</p>
+        <EmptyState title="Belum ada kategori" />
+      </div>
+    )
+  }
+  return (
+    <div className="mb-4">
+      <p className="mb-1 text-sm font-medium text-zinc-700">{title}</p>
+      <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200">
+        {cats.map((c) => (
+          <li key={c.id} className="flex items-center justify-between px-3 py-2.5">
+            <span className={`text-sm ${c.is_active ? 'text-ink' : 'text-zinc-400'}`}>{c.name}</span>
+            <div className="flex items-center gap-2">
+              {c.is_active ? <Badge variant="green">Aktif</Badge> : <Badge variant="zinc">Nonaktif</Badge>}
+              <Button variant="ghost" size="sm" onClick={() => onToggle(c)}>
+                {c.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+              </Button>
             </div>
-            <div>
-              <p className="text-sm font-medium text-zinc-800">{user?.username ?? 'Pengguna'}</p>
-              <p className="text-xs text-zinc-500">{user?.email}</p>
-            </div>
-            {user ? <Badge variant="brand">Bendahara</Badge> : null}
-          </div>
-          <Button
-            variant="outline"
-            onClick={async () => {
-              await createClient().auth.signOut()
-              router.push('/login')
-              router.refresh()
-            }}
-          >
-            Keluar
-          </Button>
-        </CardContent>
-      </Card>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

@@ -1,113 +1,109 @@
 # Kas Kelas — Manajemen Keuangan Kelas
 
-Aplikasi web untuk mengelola keuangan kelas: iuran bulanan, pencatatan pemasukan/pengeluaran, dan laporan. Desain **mobile-first** dengan akses dua peran: **bendahara** (edit) dan **walikelas** (hanya melihat).
+Aplikasi web untuk mengelola keuangan kelas: iuran bulanan, pencatatan pemasukan dan pengeluaran, serta laporan. Dibangun ulang dari nol dengan tiga peran: **superadmin** (developer), **bendahara** (pengelola keuangan), dan **walikelas** (melihat dashboard dan laporan saja).
 
 ## Tech Stack
 
 | Komponen | Teknologi |
 |---|---|
-| Frontend | Next.js 16 (App Router) + TypeScript + Tailwind CSS |
+| Frontend | Next.js 16 (App Router) + TypeScript + Tailwind CSS v4 |
 | Database | Supabase (PostgreSQL) |
 | Auth | Supabase Auth (email/password) + login username |
-| Storage gambar | Cloudinary (free plan) |
+| Penyimpanan gambar | Cloudinary (free plan) |
 | Deployment | Vercel |
 
-## Fitur Utama
+## Akun Awal
 
-- **Login username + password** — mapping username → email disimpan di tabel `app_users`
-- **Dashboard** — saldo kas, ringkasan bulan ini, grafik 6 bulan, iuran progress
-- **Anggota** — CRUD siswa, toggle aktif/nonaktif
-- **Transaksi** — catat pemasukan/pengeluaran, upload bukti pembayaran ke Cloudinary
-- **Iuran** — tandai lunas/belum per siswa per bulan, batch tandai lunas
-- **Laporan** — rekap per bulan, per kategori, per anggota, rekap tahunan, export CSV
-- **Pengaturan** — ubah nama kelas, tahun ajaran, nominal iuran, kelola kategori
-- **Peran walikelas** — akun view-only, hanya melihat Dashboard + Laporan (tanpa tombol edit; aksi di-server juga ditolak)
-- **Mobile-first** — bottom nav di ponsel, tabel jadi kartu di layar kecil, modal jadi bottom sheet
+| Username | Password | Peran |
+|---|---|---|
+| `qeida` | `qeidudu` | Bendahara |
+| `yasmin` | `yasminpecintacatboyfemboy` | Bendahara |
+| `superadmin` | `rezky23310` | Superadmin |
+| `harry` | `harry321` | Walikelas |
 
-## Arsitektur Penyimpanan Gambar
+## Peran dan Hak Akses
 
-Bukti pembayaran diunggah langsung dari browser ke Cloudinary (unsigned upload preset), bukan melalui server. Ini menghemat bandwidth Vercel dan kapasitas Supabase Storage.
+- **Superadmin** — khusus developer: kelola pengguna (buat/hapus akun, ubah peran, reset password) dan melihat semua data (read-only).
+- **Bendahara** — pengelola keuangan penuh: anggota, transaksi, iuran, laporan, pengaturan kelas.
+- **Walikelas** — hanya melihat Dashboard dan Laporan. Akses ke halaman lain diarahkan kembali ke Dashboard, dan mutasi data ditolak di server serta di database (RLS).
 
-- Kompresi gambar dilakukan di sisi browser sebelum upload (maks 300 KB, max 1000px).
-- URL gambar disimpan di kolom `transactions.proof_url`.
+## Setup Database
 
-## Konfigurasi
+1. Reset schema di Supabase SQL Editor (hapus semua data lama):
+   ```sql
+   drop schema public cascade;
+   create schema public;
+   ```
+2. Jalankan seluruh isi `supabase/schema.sql` di Supabase SQL Editor.
+3. Matikan **Confirm email** di Authentication → Providers → Email (agar password langsung aktif).
+4. Buat akun di **Authentication → Users → Add user** (email dibuat dari username, contoh `qeida@kas-kelas.test`):
+   - `qeida@kas-kelas.test` / `qeidudu`
+   - `yasmin@kas-kelas.test` / `yasminpecintacatboyfemboy`
+   - `superadmin@kas-kelas.test` / `rezky23310`
+   - `harry@kas-kelas.test` / `harry321`
+5. Set peran di SQL Editor:
+   ```sql
+   update public.app_users set role = 'superadmin' where username = 'superadmin';
+   update public.app_users set role = 'walikelas' where username = 'harry';
+   ```
+   (Akun `qeida` dan `yasmin` sudah berperan bendahara secara otomatis oleh trigger, tidak perlu di-update.)
 
-1. **Clone** repositori ini
-2. Salin `.env.local.example` → `.env.local`, isi nilai-nilai berikut:
+## Konfigurasi Lingkungan
+
+Salin `.env.local.example` menjadi `.env.local`:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your-cloud-name
-NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=your-unsigned-preset
+NEXT_PUBLIC_SUPABASE_URL=https://project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=anon-key
+SUPABASE_SERVICE_ROLE_KEY=service-role-key
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=cloud-name
+NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=upload-preset
 ```
 
-3. Buat proyek di [Supabase](https://supabase.com) dan [Cloudinary](https://cloudinary.com).
-4. Di Supabase SQL Editor, jalankan file `supabase/schema.sql`.
-5. Jika proyek Supabase **sudah pernah** memakai schema versi lama, jalankan juga `supabase/migration-username-role.sql` (mengganti policy RLS dan menambah tabel `app_users`).
-6. Jalankan `npm run dev` dan buka `http://localhost:3000`.
+- `SUPABASE_SERVICE_ROLE_KEY` diambil dari Supabase Dashboard → Settings → API → service_role. Hanya dipakai di server action untuk fitur Kelola Pengguna — jangan pernah diekspos ke client.
+- Preset upload Cloudinary dibuat dengan **unsigned preset** (mode Unsigned) agar unggahan bisa langsung dari browser.
 
-## Cara Membuat Akun (Bendahara & Walikelas)
+## Script
 
-Login memakai **username + password**. Username **terisi otomatis dari email** (bagian sebelum `@`, huruf kecil) oleh trigger database — jadi tidak perlu insert manual. Auth di belakangnya tetap Supabase (email/password). Langkahnya:
-
-1. Buka Supabase Dashboard → **Authentication** → **Users** → **Add user**. Buat akun (email + password) untuk **bendahara** dan **walikelas**. Form ini memang hanya menerima email — username otomatis terisi: misal email `bendahara.kelas@gmail.com` → username `bendahara.kelas`.
-2. Role default semua akun = **bendahara**. Untuk akun walikelas (hanya lihat), jalankan satu baris di SQL Editor:
-   ```sql
-   update public.app_users set role = 'walikelas'
-   where username = 'username-akun-walikelas';
-   ```
-3. Login pakai username + password.
-   - **Bendahara**: akses penuh (semua menu + edit).
-   - **Walikelas**: hanya Dashboard + Laporan, semua read-only. Akses langsung ke halaman edit akan diarahkan kembali ke Dashboard, dan RLS database menolak perubahan.
-
-Catatan: username harus huruf kecil (dipaksa oleh constraint `check (username = lower(username))`).
+```bash
+npm run dev      # mode pengembangan
+npm run build    # build produksi
+npm run start    # menjalankan build
+npm run lint     # ESLint
+```
 
 ## Struktur Proyek
 
 ```
 src/
 ├── app/
-│   ├── login/page.tsx          # Halaman login
-│   ├── (app)/                   # Grup route (terproteksi)
-│   │   ├── layout.tsx          # Sidebar + topbar shell
+│   ├── login/page.tsx
+│   ├── (app)/layout.tsx            # shell: sidebar desktop + bottom nav mobile
 │   │   ├── dashboard/page.tsx
 │   │   ├── members/page.tsx
 │   │   ├── transactions/page.tsx
 │   │   ├── iuran/page.tsx
 │   │   ├── reports/page.tsx
-│   │   └── settings/page.tsx
-│   ├── actions/                # Server actions
-│   │   ├── auth.ts
-│   │   ├── guard.ts            # Cek role bendahara (keamanan mutation)
-│   │   ├── members.ts
-│   │   ├── transactions.ts
-│   │   ├── iurans.ts
-│   │   ├── settings.ts
-│   ├── lib/
-│   │   ├── supabase/
-│   │   │   ├── client.ts       # Browser client (client components)
-│   │   │   ├── server.ts       # Server client (server actions)
-│   │   │   └── proxy.ts        # Auth guard + redirect role walikelas
-│   │   ├── session.ts          # Ambil username + role pemakai
-│   │   ├── queries.ts          # Helper fetch data (client-side)
-│   │   ├── cloudinary.ts       # Upload + kompresi gambar
-│   │   ├── types.ts            # Tipe antarmuka tabel
-│   │   └── utils.ts            # Format uang, tanggal, dll.
-│   ├── components/ui/          # Komponen UI (termasuk BottomNav)
-│   ├── proxy.ts                # Middleware (Next 16 → proxy)
-├── supabase/
-│   ├── schema.sql              # Skema database + seed (versi terbaru)
-│   └── migration-username-role.sql  # Migrasi username login + role
+│   │   ├── settings/page.tsx
+│   │   └── users/page.tsx          # Kelola Pengguna (superadmin)
+│   └── actions/                    # server actions
+├── components/
+│   ├── AppShell.tsx
+│   ├── ChartWrapper.tsx / TrendChart.tsx
+│   ├── ExportCsvButton.tsx
+│   └── ui/                         # kit UI
+├── lib/
+│   ├── supabase/{client,server}.ts
+│   ├── session.ts / session-server.ts
+│   ├── queries.ts / cloudinary.ts / types.ts / utils.ts
+└── proxy.ts                        # middleware auth + redirect role
 ```
 
-## Deployment ke Vercel
+## Keamanan (Tiga Lapis)
 
-1. Push repo ke GitHub.
-2. Di [Vercel](https://vercel.com), buat proyek baru dan impor repo.
-3. Tambahkan environment variables di dashboard Vercel (sama dengan `.env.local`).
-4. Deploy.
+1. **Proxy** — memastikan pengguna login dan mengarahkan walikelas ke halaman yang diizinkan.
+2. **Guard server action** — `requireBendahara()` dan `requireSuperadmin()` di setiap mutasi.
+3. **RLS database** — semua pengecekan peran memakai fungsi `security definer` (`is_bendahara`, `is_walikelas`, `is_superadmin`) sehingga tidak bergantung pada policy `app_users` dan tidak menimbulkan error permission.
 
 ## Lisensi
 

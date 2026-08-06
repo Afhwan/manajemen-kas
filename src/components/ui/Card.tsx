@@ -1,9 +1,8 @@
-import { cn } from '@/lib/utils'
 import type { ReactNode } from 'react'
 
-export function Card({ className, children }: { className?: string; children: ReactNode }) {
+export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn('rounded-2xl border border-zinc-200 bg-white shadow-sm', className)}>
+    <div className={`rounded-xl border border-zinc-200 bg-white/70 shadow-sm ${className}`}>
       {children}
     </div>
   )
@@ -19,16 +18,22 @@ export function CardHeader({
   action?: ReactNode
 }) {
   return (
-      <div className="flex items-start justify-between gap-3 border-b border-zinc-100 px-5 py-4">
+    <div className="flex items-start justify-between gap-3 border-b border-zinc-200 px-5 py-4">
       <div>
-        <h3 className="font-display text-base font-semibold text-zinc-900">{title}</h3>
-        {subtitle ? <p className="mt-0.5 text-xs text-zinc-500">{subtitle}</p> : null}
+        <h3 className="font-display text-lg font-semibold text-ink">{title}</h3>
+        {subtitle ? <p className="mt-0.5 text-sm text-zinc-500">{subtitle}</p> : null}
       </div>
       {action}
     </div>
   )
 }
 
-export function CardContent({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cn('p-5', className)}>{children}</div>
+export function CardContent({
+  children,
+  className = '',
+}: {
+  children: ReactNode
+  className?: string
+}) {
+  return <div className={`px-5 py-4 ${className}`}>{children}</div>
 }

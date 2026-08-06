@@ -1,36 +1,25 @@
-import type { Metadata } from "next";
-import { Fraunces, Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import type { Metadata } from 'next'
+import { Fraunces } from 'next/font/google'
+import { ToastProvider } from '@/components/ui/Toast'
+import './globals.css'
 
 const fraunces = Fraunces({
-  variable: "--font-fraunces",
-  subsets: ["latin"],
-});
+  subsets: ['latin'],
+  variable: '--font-fraunces',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
-  title: "Kas Kelas — Kelola Duit Kas",
-  description: "Aplikasi manajemen kas kelas: iuran, transaksi, dan laporan",
-};
+  title: 'Kas Kelas',
+  description: 'Aplikasi pengelolaan keuangan kelas',
+}
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="id"
-      className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col" suppressHydrationWarning>
-        {children}
+    <html lang="id" className={fraunces.variable}>
+      <body className="min-h-dvh bg-paper text-ink" suppressHydrationWarning>
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
-  );
+  )
 }

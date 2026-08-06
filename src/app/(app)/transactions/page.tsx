@@ -1,67 +1,67 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
-import { addTransaction, deleteTransaction, uploadProof, removeProof, updateTransaction } from '@/app/actions/transactions'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { addTransaction, deleteTransaction, updateTransaction } from '@/app/actions/transactions'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { Card, CardContent, CardHeader } from '@/components/ui/Card'
+import { Card, CardContent } from '@/components/ui/Card'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Field, Input, Select, Textarea } from '@/components/ui/Field'
 import { Modal } from '@/components/ui/Modal'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { Spinner } from '@/components/ui/Spinner'
+import { PageLoader } from '@/components/ui/Spinner'
 import { useToast } from '@/components/ui/Toast'
+import { uploadProof } from '@/lib/cloudinary'
 import { fetchCategories, fetchTransactions } from '@/lib/queries'
-import { formatIDR, formatDate } from '@/lib/utils'
 import type { Category, Transaction } from '@/lib/types'
-
-type TxType = 'income' | 'expense'
+import { currentDateISO, formatDate, formatRupiah } from '@/lib/utils'
 
 export default function TransactionsPage() {
   const { toast } = useToast()
-  const [txs, setTxs] = useState<Transaction[] | null>(null)
+  const [transactions, setTransactions] = useState<Transaction[] | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
-  const [filterType, setFilterType] = useState<TxType | 'all'>('all')
-  const [filterMonth, setFilterMonth] = useState('')
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const [proofFile, setProofFile] = useState<File | null>(null)
-  const [uploadingProof, setUploadingProof] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null)
-
-  const load = useCallback(async () => {
-    const [txData, catData] = await Promise.all([
-      fetchTransactions({ limit: 500 }),
-      fetchCategories(),
-    ])
-    setTxs(txData)
-    setCategories(catData)
-  }, [])
+  const [deleting, setDeleting] = useState(false)
+  const [proofFile, setProofFile] = useState<File | null>(null)
+  const [proofPreview, setProofPreview] = useState<string | null>(null)
 
   useEffect(() => {
+    let ignore = false
+    async function load() {
+      const [tx, cats] = await Promise.all([fetchTransactions(), fetchCategories()])
+      if (ignore) return
+      setTransactions(tx)
+      setCategories(cats)
+    }
     load()
-  }, [load])
+    return () => {
+      ignore = true
+    }
+  }, [refreshKey])
 
   const filtered = useMemo(() => {
-    if (!txs) return []
-    return txs.filter((t) => {
-      if (filterType !== 'all' && t.type !== filterType) return false
-      if (filterMonth && !t.transaction_date.startsWith(filterMonth)) return false
-      return true
-    })
-  }, [txs, filterType, filterMonth])
+    if (!transactions) return []
+    if (filterType === 'all') return transactions
+    return transactions.filter((t) => t.type === filterType)
+  }, [transactions, filterType])
 
-  const incomeCats = categories.filter((c) => c.type === 'income')
-  const expenseCats = categories.filter((c) => c.type === 'expense')
-  const usedCats = editing?.type === 'income' ? incomeCats : expenseCats
+  const income = filtered.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0)
+  const expense = filtered.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+  const balance = income - expense
 
-  function openAdd(type: TxType = 'income') {
+  function openAdd() {
     setEditing(null)
     setFormError(null)
     setProofFile(null)
+    setProofPreview(null)
     setModalOpen(true)
   }
 
@@ -69,163 +69,170 @@ export default function TransactionsPage() {
     setEditing(t)
     setFormError(null)
     setProofFile(null)
+    setProofPreview(t.proof_url)
     setModalOpen(true)
+  }
+
+  function closeModal() {
+    if (saving || uploading) return
+    setModalOpen(false)
+  }
+
+  async function handleProofChange(file: File | null) {
+    if (!file) {
+      setProofFile(null)
+      setProofPreview(null)
+      return
+    }
+    setProofFile(file)
+    setProofPreview(URL.createObjectURL(file))
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSaving(true)
     setFormError(null)
+
     const formData = new FormData(e.currentTarget)
 
-    const result = editing
-      ? await updateTransaction(formData)
-      : await addTransaction(formData)
-
-    if (result && 'error' in result) {
-      setFormError(result.error as string)
-      setSaving(false)
-      return
-    }
-
     if (proofFile) {
-      setUploadingProof(true)
-      const txResult = editing
-        ? await updateTransaction(new FormData(e.currentTarget))
-        : await addTransaction(new FormData(e.currentTarget))
-      await load()
-      const latest = txs?.[0]
-      if (latest) {
-        await uploadProof(latest.id, proofFile).catch(() => {})
+      try {
+        setUploading(true)
+        const result = await uploadProof(proofFile)
+        formData.set('proof_url', result.url)
+        formData.set('proof_public_id', result.publicId)
+      } catch (err) {
+        setUploading(false)
+        setSaving(false)
+        setFormError(err instanceof Error ? err.message : 'Gagal mengunggah bukti.')
+        return
       }
-      setUploadingProof(false)
+    } else if (proofPreview === null && editing) {
+      formData.set('remove_proof', '1')
     }
 
-    setModalOpen(false)
-    setSaving(false)
-    setProofFile(null)
-    toast(editing ? 'Transaksi berhasil diupdate' : 'Transaksi berhasil ditambah')
-    load()
-  }
+    const result = editing ? await updateTransaction(formData) : await addTransaction(formData)
 
-  async function handleDelete(t: Transaction) {
-    const result = await deleteTransaction(t.id)
     if (result && 'error' in result) {
-      toast(result.error, 'error')
+      setUploading(false)
+      setSaving(false)
+      setFormError(result.error as string)
       return
     }
-    toast('Transaksi kehapus')
-    load()
+
+    setUploading(false)
+    setSaving(false)
+    setModalOpen(false)
+    toast(editing ? 'Transaksi berhasil diperbarui.' : 'Transaksi berhasil dicatat.')
+    setRefreshKey((k) => k + 1)
   }
 
-  async function handleUploadProof(t: Transaction) {
-    if (!proofFile) return
-    setUploadingProof(true)
-    try {
-      await uploadProof(t.id, proofFile)
-      toast('Bukti pembayaran ke-upload')
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'Gagal upload bukti', 'error')
+  async function handleDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    const result = await deleteTransaction(deleteTarget.id)
+    if (result && 'error' in result) {
+      setDeleting(false)
+      toast(result.error as string, 'error')
+      return
     }
-    setUploadingProof(false)
-    load()
+    setDeleting(false)
+    setDeleteTarget(null)
+    toast('Transaksi dihapus.')
+    setRefreshKey((k) => k + 1)
   }
+
+  if (!transactions) return <PageLoader />
 
   return (
     <div>
       <PageHeader
         title="Transaksi"
-        subtitle="Catat duit masuk & keluar kas kelas"
-      >
-        <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={() => openAdd('income')}>
-            + Pemasukan
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => openAdd('expense')}>
-            + Pengeluaran
-          </Button>
-        </div>
-      </PageHeader>
+        subtitle="Catatan pemasukan dan pengeluaran kas"
+        action={<Button onClick={openAdd}>Catat Transaksi</Button>}
+      />
 
-      <div className="mb-4 flex flex-wrap gap-3">
-        <select
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm"
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value as TxType | 'all')}
-        >
-          <option value="all">Semua Jenis</option>
-          <option value="income">Pemasukan</option>
-          <option value="expense">Pengeluaran</option>
-        </select>
-        <input
-          type="month"
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm"
-          value={filterMonth}
-          onChange={(e) => setFilterMonth(e.target.value)}
-          title="Filter bulan"
-        />
-        {filterType !== 'all' || filterMonth ? (
-          <Button variant="ghost" size="sm" onClick={() => { setFilterType('all'); setFilterMonth('') }}>
-            Reset
-          </Button>
-        ) : null}
+      <div className="mb-4 grid grid-cols-3 gap-3">
+        <SummaryBox label="Pemasukan" value={formatRupiah(income)} className="text-green-600" />
+        <SummaryBox label="Pengeluaran" value={formatRupiah(expense)} className="text-maroon-700" />
+        <SummaryBox label="Selisih" value={formatRupiah(balance)} className="text-ink" />
+      </div>
+
+      <div className="mb-4 flex max-w-sm gap-2">
+        {(
+          [
+            ['all', 'Semua'],
+            ['income', 'Pemasukan'],
+            ['expense', 'Pengeluaran'],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setFilterType(value)}
+            className={`rounded-lg border px-3 py-1.5 text-sm ${
+              filterType === value
+                ? 'border-maroon-600 bg-maroon-600 text-paper'
+                : 'border-zinc-300 text-zinc-600 hover:bg-zinc-100'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       <Card>
         {filtered.length === 0 ? (
           <EmptyState
             title="Belum ada transaksi"
-            description="Gas tambah pemasukan atau pengeluaran pertama."
-            action={
-              <Button size="sm" onClick={() => openAdd('income')}>
-                Tambah Transaksi
-              </Button>
-            }
+            description="Catat pemasukan atau pengeluaran untuk mulai mengelola kas kelas."
+            action={<Button onClick={openAdd}>Catat Transaksi</Button>}
           />
         ) : (
           <CardContent className="p-0">
             <ul className="divide-y divide-zinc-100 md:hidden">
               {filtered.map((t) => (
                 <li key={t.id} className="px-5 py-4">
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-zinc-800">{t.description}</p>
-                      <p className="mt-0.5 text-xs text-zinc-500">
-                        {formatDate(t.transaction_date)} · {t.categories?.name ?? 'Tanpa kategori'}
+                      <p className="truncate text-sm font-medium text-ink">
+                        {t.description || t.categories?.name || 'Transaksi'}
                       </p>
-                      <div className="mt-2 flex items-center gap-2">
-                        {t.type === 'income' ? (
-                          <Badge variant="green">Pemasukan</Badge>
-                        ) : (
-                          <Badge variant="red">Pengeluaran</Badge>
-                        )}
-                        {t.proof_url ? (
-                          <a
-                            href={t.proof_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs font-medium text-brand-600 hover:underline"
-                          >
-                            Lihat bukti
-                          </a>
-                        ) : null}
-                      </div>
+                      <p className="text-xs text-zinc-500">
+                        {formatDate(t.transaction_date)} · {t.categories?.name}
+                      </p>
                     </div>
                     <span
                       className={`shrink-0 text-sm font-semibold ${
-                        t.type === 'income' ? 'text-emerald-600' : 'text-red-600'
+                        t.type === 'income' ? 'text-green-600' : 'text-maroon-700'
                       }`}
                     >
-                      {t.type === 'income' ? '+' : '−'} {formatIDR(t.amount)}
+                      {t.type === 'income' ? '+' : '-'}
+                      {formatRupiah(t.amount)}
                     </span>
                   </div>
-                  <div className="mt-3 flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1" onClick={() => openEdit(t)}>
-                      Edit
-                    </Button>
-                    <Button variant="ghost" size="sm" className="flex-1" onClick={() => setDeleteTarget(t)}>
-                      Hapus
-                    </Button>
+                  <div className="mt-2 flex items-center gap-2">
+                    <Badge variant={t.type === 'income' ? 'green' : 'maroon'}>
+                      {t.type === 'income' ? 'Masuk' : 'Keluar'}
+                    </Badge>
+                    {t.proof_url ? (
+                      <a
+                        href={t.proof_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-maroon-700 underline"
+                      >
+                        Lihat bukti
+                      </a>
+                    ) : null}
+                    <div className="ml-auto flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => openEdit(t)}>
+                        Edit
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(t)}>
+                        Hapus
+                      </Button>
+                    </div>
                   </div>
                 </li>
               ))}
@@ -233,59 +240,49 @@ export default function TransactionsPage() {
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-400">
-                    <th className="px-4 py-3 font-medium">Tanggal</th>
-                    <th className="px-4 py-3 font-medium">Keterangan</th>
-                    <th className="px-4 py-3 font-medium">Kategori</th>
-                    <th className="px-4 py-3 font-medium">Jenis</th>
-                    <th className="px-4 py-3 font-medium">Bukti</th>
-                    <th className="px-4 py-3 text-right font-medium">Jumlah</th>
-                    <th className="px-4 py-3 text-right font-medium">Aksi</th>
+                  <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500">
+                    <th className="px-5 py-3 font-medium">Tanggal</th>
+                    <th className="px-5 py-3 font-medium">Keterangan</th>
+                    <th className="px-5 py-3 font-medium">Kategori</th>
+                    <th className="px-5 py-3 font-medium">Jenis</th>
+                    <th className="px-5 py-3 text-right font-medium">Nominal</th>
+                    <th className="px-5 py-3 text-right font-medium">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
                   {filtered.map((t) => (
                     <tr key={t.id} className="hover:bg-zinc-50">
-                      <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
-                        {formatDate(t.transaction_date)}
-                      </td>
-                      <td className="px-4 py-3 font-medium text-zinc-800">
-                        {t.description}
-                      </td>
-                      <td className="px-4 py-3 text-zinc-500">
-                        {t.categories?.name ?? '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        {t.type === 'income' ? (
-                          <Badge variant="green">Pemasukan</Badge>
-                        ) : (
-                          <Badge variant="red">Pengeluaran</Badge>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
+                      <td className="px-5 py-3 text-zinc-500">{formatDate(t.transaction_date)}</td>
+                      <td className="px-5 py-3">
+                        <span className="font-medium text-ink">{t.description || '—'}</span>
                         {t.proof_url ? (
                           <a
                             href={t.proof_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-xs font-medium text-brand-600 hover:underline"
+                            className="ml-2 text-xs text-maroon-700 underline"
                           >
-                            Lihat
+                            bukti
                           </a>
-                        ) : (
-                          <span className="text-xs text-zinc-300">—</span>
-                        )}
+                        ) : null}
+                      </td>
+                      <td className="px-5 py-3 text-zinc-600">{t.categories?.name ?? '—'}</td>
+                      <td className="px-5 py-3">
+                        <Badge variant={t.type === 'income' ? 'green' : 'maroon'}>
+                          {t.type === 'income' ? 'Masuk' : 'Keluar'}
+                        </Badge>
                       </td>
                       <td
-                        className={`whitespace-nowrap px-4 py-3 text-right font-semibold ${
-                          t.type === 'income' ? 'text-emerald-600' : 'text-red-600'
+                        className={`px-5 py-3 text-right font-semibold ${
+                          t.type === 'income' ? 'text-green-600' : 'text-maroon-700'
                         }`}
                       >
-                        {t.type === 'income' ? '+' : '−'} {formatIDR(t.amount)}
+                        {t.type === 'income' ? '+' : '-'}
+                        {formatRupiah(t.amount)}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => openEdit(t)}>
+                      <td className="px-5 py-3">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => openEdit(t)}>
                             Edit
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(t)}>
@@ -302,131 +299,136 @@ export default function TransactionsPage() {
         )}
       </Card>
 
-      <ConfirmDialog
-        open={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={() => {
-          if (deleteTarget) handleDelete(deleteTarget)
-          setDeleteTarget(null)
-        }}
-        title="Hapus Transaksi"
-        message="Yakin mau hapus transaksi ini? Gak bisa dibatalkan lagi lho."
-        confirmLabel="Hapus"
-      />
-
       <Modal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title={editing ? 'Edit Transaksi' : 'Tambah Transaksi'}
-        maxWidth="max-w-md"
+        onClose={closeModal}
+        title={editing ? 'Edit Transaksi' : 'Catat Transaksi'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
 
-          <Field label="Jenis">
-            <Select
-              name="type"
-              value={editing?.type ?? 'income'}
-              onChange={(e) => {
-                const val = e.target.value as TxType
-                setEditing((prev) => (prev ? { ...prev, type: val } : null))
-                setFormError(null)
-              }}
-            >
-              <option value="income">Pemasukan</option>
-              <option value="expense">Pengeluaran</option>
-            </Select>
-          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Jenis">
+              <Select name="type" required defaultValue={editing?.type ?? 'income'}>
+                <option value="income">Pemasukan</option>
+                <option value="expense">Pengeluaran</option>
+              </Select>
+            </Field>
+            <Field label="Tanggal">
+              <Input
+                type="date"
+                name="transaction_date"
+                defaultValue={editing?.transaction_date ?? currentDateISO()}
+              />
+            </Field>
+          </div>
 
           <Field label="Kategori">
-            <Select name="category_id" defaultValue={editing?.category_id ?? ''}>
-              <option value="">— Pilih kategori —</option>
-              {usedCats.map((c) => (
+            <Select name="category_id" required defaultValue={editing?.category_id ?? ''}>
+              <option value="" disabled>
+                Pilih kategori
+              </option>
+              {categories.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}
+                  {c.name} ({c.type === 'income' ? 'Masuk' : 'Keluar'})
                 </option>
               ))}
             </Select>
           </Field>
 
-          <Field label="Jumlah (Rp)" hint="Isi angka aja, tanpa titik/rupiah">
+          <Field label="Nominal (Rp)">
             <Input
               type="number"
               name="amount"
+              min={0}
               required
-              min={1}
               defaultValue={editing?.amount ?? ''}
-              placeholder="Contoh: 100000"
+              placeholder="10000"
             />
           </Field>
 
-          <Field label="Tanggal">
-            <Input
-              type="date"
-              name="transaction_date"
-              defaultValue={editing?.transaction_date ?? new Date().toISOString().slice(0, 10)}
-            />
-          </Field>
-
-          <Field label="Keterangan">
+          <Field label="Keterangan" hint="Contoh: Iuran bulan Mei, beli spidol">
             <Textarea
               name="description"
-              required
               defaultValue={editing?.description ?? ''}
               placeholder="Keterangan transaksi"
             />
           </Field>
 
-          <Field label="Bukti Pembayaran (opsional)" hint="Foto transfer atau struk">
-            <Input
+          <Field label="Bukti Pembayaran" hint="Opsional. Foto akan dikompresi sebelum diunggah.">
+            <input
               type="file"
               accept="image/*"
-              onChange={(e) => {
-                setProofFile(e.target.files?.[0] || null)
-              }}
+              onChange={(e) => handleProofChange(e.target.files?.[0] ?? null)}
+              className="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-maroon-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-maroon-700 hover:file:bg-maroon-100"
             />
           </Field>
 
-          {editing?.proof_url ? (
-            <div className="flex items-center gap-3">
-              <a
-                href={editing.proof_url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs font-medium text-brand-600 hover:underline"
-              >
-                Bukti sekarang (cek)
-              </a>
-              <Button
+          {proofPreview ? (
+            <div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={proofPreview}
+                alt="Pratinjau bukti"
+                className="max-h-40 rounded-lg border border-zinc-200 object-contain"
+              />
+              <button
                 type="button"
-                variant="ghost"
-                size="sm"
-                onClick={async () => {
-                  await removeProof(editing.id)
-                  toast('Bukti kehapus')
-                  load()
-                }}
+                onClick={() => handleProofChange(null)}
+                className="mt-1 text-xs text-maroon-700 hover:underline"
               >
                 Hapus bukti
-              </Button>
+              </button>
             </div>
           ) : null}
 
           {formError ? (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+              {formError}
+            </p>
           ) : null}
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>
+            <Button type="button" variant="outline" onClick={closeModal}>
               Batal
             </Button>
-            <Button type="submit" disabled={saving || uploadingProof}>
-              {saving || uploadingProof ? <Spinner className="border-white/40 border-t-white" /> : null}
-              {saving ? 'Nyimpen…' : uploadingProof ? 'Upload bukti…' : 'Simpen'}
+            <Button type="submit" disabled={saving || uploading}>
+              {uploading ? 'Mengunggah…' : saving ? 'Menyimpan…' : 'Simpan'}
             </Button>
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Hapus transaksi?"
+        description="Transaksi yang dihapus tidak dapat dikembalikan."
+        confirmLabel="Hapus"
+        busy={deleting}
+        onConfirm={handleDelete}
+        onClose={() => setDeleteTarget(null)}
+      />
     </div>
+  )
+}
+
+function SummaryBox({
+  label,
+  value,
+  className,
+}: {
+  label: string
+  value: string
+  className: string
+}) {
+  return (
+    <Card>
+      <CardContent className="px-3 py-3">
+        <p className="text-xs text-zinc-500">{label}</p>
+        <p className={`mt-0.5 truncate text-sm font-semibold md:text-base ${className}`}>
+          {value}
+        </p>
+      </CardContent>
+    </Card>
   )
 }

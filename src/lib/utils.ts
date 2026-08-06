@@ -1,31 +1,19 @@
-const MONTHS_ID = [
-  'Januari',
-  'Februari',
-  'Maret',
-  'April',
-  'Mei',
-  'Juni',
-  'Juli',
-  'Agustus',
-  'September',
-  'Oktober',
-  'November',
-  'Desember',
-] as const
-
-export function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(' ')
-}
-export function formatIDR(amount: number) {
+export function formatRupiah(value: number): string {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     maximumFractionDigits: 0,
-  }).format(amount)
+  }).format(value)
 }
 
-export function formatDate(iso: string | Date) {
-  const d = typeof iso === 'string' ? new Date(iso) : iso
+export function formatNumber(value: number): string {
+  return new Intl.NumberFormat('id-ID').format(value)
+}
+
+export function formatDate(value: string | null | undefined): string {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return '—'
   return new Intl.DateTimeFormat('id-ID', {
     day: 'numeric',
     month: 'short',
@@ -33,28 +21,27 @@ export function formatDate(iso: string | Date) {
   }).format(d)
 }
 
-export function formatMonthLabel(dateStr: string) {
-  const d = new Date(`${dateStr.slice(0, 10)}T00:00:00`)
-  return `${MONTHS_ID[d.getMonth()]} ${d.getFullYear()}`
+export function formatMonthPeriod(value: string): string {
+  const d = new Date(`${value}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return value
+  return new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(d)
 }
 
-export function formatMonthShort(idx: number) {
-  return MONTHS_ID[idx].slice(0, 3)
+export function currentMonthPeriod(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
 }
 
-export function firstDayOfMonth(year: number, monthIndex: number) {
-  return `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`
+export function currentDateISO(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+    now.getDate()
+  ).padStart(2, '0')}`
 }
 
-export function periodFromDate(d: Date) {
-  return firstDayOfMonth(d.getFullYear(), d.getMonth())
-}
-
-export function initials(name: string) {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? '')
-    .join('')
+export function computeBalance(transactions: { type: 'income' | 'expense'; amount: number }[]): number {
+  return transactions.reduce(
+    (sum, t) => sum + (t.type === 'income' ? t.amount : -t.amount),
+    0
+  )
 }

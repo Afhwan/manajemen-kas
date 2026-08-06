@@ -18,8 +18,8 @@ export async function createClient() {
               cookieStore.set(name, value, options)
             )
           } catch {
-            // Dipanggil dari Server Component. Aman diabaikan jika proxy
-            // (middleware) sudah menangani refresh sesi.
+            // Dipanggil dari Server Component. Aman diabaikan karena proxy
+            // sudah menangani refresh sesi.
           }
         },
       },

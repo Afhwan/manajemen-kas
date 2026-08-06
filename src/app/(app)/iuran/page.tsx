@@ -1,238 +1,187 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
-import { batchMarkPaid, markIuranPaid, markIuranUnpaid } from '@/app/actions/iurans'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  generateIuranPeriod,
+  markAllIuranPaid,
+  markIuranPaid,
+} from '@/app/actions/iurans'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent } from '@/components/ui/Card'
-import { Field, Input, Select } from '@/components/ui/Field'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { PageLoader } from '@/components/ui/Spinner'
 import { useToast } from '@/components/ui/Toast'
-import { fetchClassInfo, fetchIurans, fetchMembers } from '@/lib/queries'
-import { formatIDR, formatMonthLabel, periodFromDate } from '@/lib/utils'
-import type { Iuran, Member } from '@/lib/types'
+import { fetchClassInfo, fetchIurans } from '@/lib/queries'
+import type { Iuran } from '@/lib/types'
+import { currentMonthPeriod, formatMonthPeriod, formatRupiah } from '@/lib/utils'
 
 export default function IuranPage() {
   const { toast } = useToast()
-  const [classInfo, setClassInfo] = useState<{ iuran_amount: number } | null>(null)
-  const [members, setMembers] = useState<Member[]>([])
-  const [iurans, setIurans] = useState<Iuran[]>([])
-  const [period, setPeriod] = useState(periodFromDate(new Date()))
-  const [saving, setSaving] = useState(false)
-  const [batchMode, setBatchMode] = useState(false)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [batchSaving, setBatchSaving] = useState(false)
-
-  const load = useCallback(async () => {
-    const [info, m, i] = await Promise.all([
-      fetchClassInfo(),
-      fetchMembers(false),
-      fetchIurans(period),
-    ])
-    setClassInfo(info)
-    setMembers(m)
-    setIurans(i)
-  }, [period])
+  const [iurans, setIurans] = useState<Iuran[] | null>(null)
+  const [period, setPeriod] = useState(currentMonthPeriod())
+  const [busy, setBusy] = useState(false)
+  const [availablePeriods, setAvailablePeriods] = useState<string[]>([currentMonthPeriod()])
+  const [iuranAmount, setIuranAmount] = useState<number | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
-    load()
-  }, [load])
+    let ignore = false
+    async function load() {
+      const [data, classInfo] = await Promise.all([fetchIurans(), fetchClassInfo()])
+      if (ignore) return
+      setIurans(data)
+      setIuranAmount(classInfo?.iuran_amount ?? null)
 
-  const paidCount = iurans.filter((i) => i.status === 'paid').length
-  const totalAmount = classInfo?.iuran_amount ?? 0
-  const collected = paidCount * totalAmount
-
-  const memberMap = useMemo(() => {
-    const m = new Map(members.map((mb) => [mb.id, mb]))
-    return m
-  }, [members])
-
-  function isPaid(memberId: string) {
-    return iurans.some((i) => i.member_id === memberId && i.status === 'paid')
-  }
-
-  async function togglePaid(memberId: string) {
-    const paid = isPaid(memberId)
-    if (paid) {
-      const result = await markIuranUnpaid(memberId, period)
-      if (result && 'error' in result) {
-        toast(result.error, 'error')
-        return
-      }
-      toast('Iuran ditandain belum bayar')
-    } else {
-      const result = await markIuranPaid(memberId, period, totalAmount)
-      if (result && 'error' in result) {
-        toast(result.error, 'error')
-        return
-      }
-      toast('Iuran ditandain lunas')
+      const periods = new Set<string>([currentMonthPeriod()])
+      data.forEach((i) => periods.add(i.period))
+      setAvailablePeriods([...periods].sort().reverse())
     }
     load()
-  }
+    return () => {
+      ignore = true
+    }
+  }, [refreshKey])
 
-  async function handleBatchMark(e: FormEvent) {
-    e.preventDefault()
-    if (selectedIds.size === 0) return
-    setBatchSaving(true)
-    const result = await batchMarkPaid(
-      Array.from(selectedIds),
-      period,
-      totalAmount
-    )
+  const periodData = useMemo(
+    () => (iurans ? iurans.filter((i) => i.period === period) : []),
+    [iurans, period]
+  )
+
+  const paidCount = periodData.filter((i) => i.status === 'paid').length
+  const total = periodData.length
+  const pct = total > 0 ? Math.round((paidCount / total) * 100) : 0
+
+  async function handleGenerate() {
+    setBusy(true)
+    const result = await generateIuranPeriod(period)
     if (result && 'error' in result) {
-      toast(result.error, 'error')
-    } else {
-      toast(`${selectedIds.size} siswa ditandain lunas`)
+      toast(result.error as string, 'error')
+      setBusy(false)
+      return
     }
-    setBatchSaving(false)
-    setBatchMode(false)
-    setSelectedIds(new Set())
-    load()
+    setBusy(false)
+    toast(`Iuran ${formatMonthPeriod(period)} berhasil dibuat.`)
+    setRefreshKey((k) => k + 1)
   }
+
+  async function handleToggle(i: Iuran) {
+    const result = await markIuranPaid(i.id, i.status !== 'paid')
+    if (result && 'error' in result) {
+      toast(result.error as string, 'error')
+      return
+    }
+    toast(i.status === 'paid' ? 'Iuran dibatalkan.' : 'Iuran ditandai lunas.')
+    setRefreshKey((k) => k + 1)
+  }
+
+  async function handleMarkAll() {
+    setBusy(true)
+    const result = await markAllIuranPaid(period)
+    if (result && 'error' in result) {
+      toast(result.error as string, 'error')
+      setBusy(false)
+      return
+    }
+    setBusy(false)
+    toast('Semua iuran ditandai lunas.')
+    setRefreshKey((k) => k + 1)
+  }
+
+  if (!iurans) return <PageLoader />
 
   return (
     <div>
       <PageHeader
-        title="Iuran Bulanan"
-        subtitle={formatMonthLabel(period)}
-      >
-        <Input
-          type="month"
-          value={period.slice(0, 7)}
-          onChange={(e) => setPeriod(periodFromDate(new Date(e.target.value + '-01')))}
-          className="w-40"
-        />
-      </PageHeader>
+        title="Iuran"
+        subtitle={`Nominal iuran: ${iuranAmount !== null ? formatRupiah(iuranAmount) : '—'} per siswa`}
+        action={
+          total > 0 ? (
+            <Button variant="outline" onClick={handleMarkAll} disabled={busy || paidCount === total}>
+              Tandai Semua Lunas
+            </Button>
+          ) : undefined
+        }
+      />
 
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Card className="p-4">
-          <p className="text-xs uppercase tracking-wide text-zinc-400">Iuran/Bulan</p>
-          <p className="mt-1 text-xl font-bold text-zinc-900">{formatIDR(totalAmount)}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs uppercase tracking-wide text-zinc-400">Sudah Bayar</p>
-          <p className="mt-1 text-xl font-bold text-emerald-600">{paidCount} / {members.length}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs uppercase tracking-wide text-zinc-400">Terkumpul</p>
-          <p className="mt-1 text-xl font-bold text-zinc-900">{formatIDR(collected)}</p>
-        </Card>
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div>
+          <label className="mb-1 block text-sm font-medium text-zinc-700">Periode</label>
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value)}
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm text-ink focus:border-maroon-500 focus:outline-2 focus:outline-maroon-500/30"
+          >
+            {availablePeriods.map((p) => (
+              <option key={p} value={p}>
+                {formatMonthPeriod(p)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <Button onClick={handleGenerate} disabled={busy}>
+          Buat Iuran Bulan Ini
+        </Button>
       </div>
 
+      {total > 0 ? (
+        <div className="mb-4 rounded-xl border border-green-600/30 bg-green-50 px-4 py-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium text-green-700">
+              {paidCount} dari {total} siswa sudah lunas
+            </span>
+            <span className="font-semibold text-green-700">{pct}%</span>
+          </div>
+          <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-green-100">
+            <div
+              className="h-full rounded-full bg-green-600"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
+      ) : null}
+
       <Card>
-        {members.length === 0 ? (
-          <CardContent>
-            <p className="py-6 text-center text-sm text-zinc-400">
-              Belum ada anggota aktif nih. Gas tambah di halaman Anggota dulu.
-            </p>
-          </CardContent>
+        {periodData.length === 0 ? (
+          <EmptyState
+            title="Belum ada iuran untuk periode ini"
+            description="Klik 'Buat Iuran Bulan Ini' untuk membuat catatan iuran semua anggota."
+          />
         ) : (
           <CardContent className="p-0">
-            <ul className="divide-y divide-zinc-100 md:hidden">
-              {members.map((m, idx) => {
-                const paid = isPaid(m.id)
-                return (
-                  <li key={m.id} className="px-5 py-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-xs text-zinc-400">#{idx + 1}</p>
-                        <p className="truncate text-sm font-medium text-zinc-800">{m.name}</p>
-                      </div>
-                      {paid ? (
-                        <Badge variant="green">Lunas</Badge>
-                      ) : (
-                        <Badge variant="red">Belum Bayar</Badge>
-                      )}
-                    </div>
+            <ul className="divide-y divide-zinc-100">
+              {periodData.map((i) => (
+                <li key={i.id} className="flex items-center justify-between gap-3 px-5 py-3.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-ink">
+                      {i.members?.name ?? '—'}
+                    </p>
+                    <p className="text-xs text-zinc-500">{formatRupiah(i.amount)}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    {i.status === 'paid' ? (
+                      <Badge variant="green" stamp>
+                        Lunas
+                      </Badge>
+                    ) : (
+                      <Badge variant="zinc">Belum</Badge>
+                    )}
                     <Button
-                      variant={paid ? 'outline' : 'primary'}
+                      variant={i.status === 'paid' ? 'ghost' : 'outline'}
                       size="sm"
-                      className="mt-3 w-full"
-                      onClick={() => togglePaid(m.id)}
+                      onClick={() => handleToggle(i)}
+                      disabled={busy}
                     >
-                      {paid ? 'Batalin' : 'Tandai Lunas'}
+                      {i.status === 'paid' ? 'Batalkan' : 'Lunasi'}
                     </Button>
-                  </li>
-                )
-              })}
+                  </div>
+                </li>
+              ))}
             </ul>
-            <div className="hidden overflow-x-auto md:block">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-400">
-                    <th className="px-4 py-3 font-medium">No</th>
-                    <th className="px-4 py-3 font-medium">Nama</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 text-right font-medium">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100">
-                  {members.map((m, idx) => {
-                    const paid = isPaid(m.id)
-                    return (
-                      <tr key={m.id} className="hover:bg-zinc-50">
-                        <td className="px-4 py-3 text-zinc-400">{idx + 1}</td>
-                        <td className="px-4 py-3 font-medium text-zinc-800">{m.name}</td>
-                        <td className="px-4 py-3">
-                          {paid ? (
-                            <Badge variant="green">Lunas</Badge>
-                          ) : (
-                            <Badge variant="red">Belum Bayar</Badge>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <Button
-                            variant={paid ? 'outline' : 'primary'}
-                            size="sm"
-                            onClick={() => togglePaid(m.id)}
-                          >
-                            {paid ? 'Batalin' : 'Tandai Lunas'}
-                          </Button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
           </CardContent>
         )}
       </Card>
-
-      {members.length > 0 && (
-        <div className="mt-4 flex justify-end">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setSelectedIds(new Set(members.filter((m) => !isPaid(m.id)).map((m) => m.id)))
-              setBatchMode(true)
-            }}
-          >
-            Tandai Semua Belum Bayar Jadi Lunas
-          </Button>
-        </div>
-      )}
-
-      {batchMode ? (
-        <form onSubmit={handleBatchMark} className="mt-4 rounded-xl border border-brand-200 bg-brand-50 p-4">
-          <p className="text-sm font-medium text-brand-800">
-            Tandai {selectedIds.size} siswa ini lunas ({formatIDR(totalAmount)}/anak)
-          </p>
-          {selectedIds.size > 0 && (
-            <div className="mt-3 flex justify-end gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => { setBatchMode(false); setSelectedIds(new Set()) }}>
-                Batal
-              </Button>
-              <Button type="submit" size="sm" disabled={batchSaving}>
-                {batchSaving ? 'Nyimpen…' : 'Konfirmasi'}
-              </Button>
-            </div>
-          )}
-        </form>
-      ) : null}
     </div>
   )
 }

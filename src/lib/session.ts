@@ -1,12 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
-import type { UserRole } from '@/lib/types'
-
-export interface SessionUser {
-  id: string
-  username: string
-  email: string
-  role: UserRole
-}
+import type { SessionUser } from '@/lib/types'
 
 export async function getSessionUser(): Promise<SessionUser | null> {
   const client = createClient()
@@ -15,16 +8,16 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   } = await client.auth.getUser()
   if (!user?.email) return null
 
-  const { data } = await client
-    .from('app_users')
-    .select('username, role')
-    .eq('id', user.id)
-    .single()
+  const { data } = await client.rpc('get_app_user', { p_uid: user.id })
+
+  if (!data) return null
+
+  const row = data as { username?: string; role?: string }
 
   return {
     id: user.id,
-    username: (data?.username as string | undefined) ?? user.email,
+    username: row.username ?? user.email,
     email: user.email,
-    role: (data?.role as UserRole | undefined) ?? 'bendahara',
+    role: (row.role as SessionUser['role']) ?? 'bendahara',
   }
 }

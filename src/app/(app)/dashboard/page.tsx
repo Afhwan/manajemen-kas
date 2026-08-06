@@ -1,268 +1,189 @@
-'use client'
-
-import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+import { ChartWrapper } from '@/components/ChartWrapper'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { PageLoader } from '@/components/ui/Spinner'
-import {
-  computeBalance,
-  fetchClassInfo,
-  fetchIurans,
-  fetchMembers,
-  fetchTransactions,
-} from '@/lib/queries'
-import type { ClassInfo, Transaction } from '@/lib/types'
-import { getSessionUser } from '@/lib/session'
-import {
-  firstDayOfMonth,
-  formatIDR,
-  formatMonthShort,
-  formatMonthLabel,
-  periodFromDate,
-} from '@/lib/utils'
+import { createClient } from '@/lib/supabase/server'
+import { formatRupiah, computeBalance } from '@/lib/utils'
 
-function compactIDR(v: number) {
-  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(v % 1_000_000 === 0 ? 0 : 1)}jt`
-  if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(0)}rb`
-  return String(v)
-}
-
-function StatCard({
-  label,
-  value,
-  sub,
-  tone,
-}: {
-  label: string
-  value: string
-  sub?: string
-  tone: 'brand' | 'emerald' | 'red' | 'zinc'
-}) {
-  const tones = {
-    brand: 'bg-brand-100 text-brand-700',
-    emerald: 'bg-emerald-100 text-emerald-700',
-    red: 'bg-red-100 text-red-700',
-    zinc: 'bg-zinc-100 text-zinc-700',
+function last6Months(): { start: string; label: string }[] {
+  const out: { start: string; label: string }[] = []
+  const now = new Date()
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    out.push({
+      start: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`,
+      label: new Intl.DateTimeFormat('id-ID', { month: 'short' }).format(d),
+    })
   }
-  return (
-    <Card className="p-5">
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">{label}</p>
-      <p className={`mt-2 inline-block rounded-lg px-2 py-0.5 text-xs font-semibold ${tones[tone]}`}>
-        {value}
-      </p>
-      {sub ? <p className="mt-2 text-xs text-zinc-400">{sub}</p> : null}
-    </Card>
-  )
+  return out
 }
 
-interface DashboardData {
-  info: ClassInfo | null
-  balance: number
-  monthIn: number
-  monthOut: number
-  activeCount: number
-  paidCount: number
-  chart: { label: string; masuk: number; keluar: number }[]
-  recent: Transaction[]
-}
+export default async function DashboardPage() {
+  const supabase = await createClient()
 
-export default function DashboardPage() {
-  const [data, setData] = useState<DashboardData | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [isBendahara, setIsBendahara] = useState(true)
+  const [{ data: classInfo }, { data: transactions }, { data: iurans }, { data: members }] =
+    await Promise.all([
+      supabase.from('class_info').select('*').single(),
+      supabase
+        .from('transactions')
+        .select('id, type, amount, transaction_date, description')
+        .order('transaction_date', { ascending: false })
+        .limit(500),
+      supabase.from('iurans').select('id, status').limit(10000),
+      supabase.from('members').select('id, is_active'),
+    ])
 
-  useEffect(() => {
-    getSessionUser()
-      .then((u) => setIsBendahara(u?.role === 'bendahara'))
-      .catch(() => setIsBendahara(true))
-  }, [])
+  const all = transactions ?? []
+  const balance = computeBalance(all)
 
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      const period = periodFromDate(new Date())
-      const monthStart = period
-      const sixMonthsStart = firstDayOfMonth(
-        new Date().getFullYear(),
-        new Date().getMonth() - 5
-      )
+  const now = new Date()
+  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+  const monthTx = all.filter((t) => t.transaction_date >= monthStart)
+  const incomeMonth = monthTx.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0)
+  const expenseMonth = monthTx.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
 
-      const [info, allTx, members, iurans, recentTx] = await Promise.all([
-        fetchClassInfo(),
-        fetchTransactions({ limit: 10000 }),
-        fetchMembers(false),
-        fetchIurans(period),
-        fetchTransactions({ limit: 5 }),
-      ])
-
-      if (cancelled) return
-
-      const balance = computeBalance(allTx)
-      const monthTx = allTx.filter((t) => t.transaction_date >= monthStart)
-      const monthIn = monthTx
-        .filter((t) => t.type === 'income')
-        .reduce((a, t) => a + t.amount, 0)
-      const monthOut = monthTx
-        .filter((t) => t.type === 'expense')
-        .reduce((a, t) => a + t.amount, 0)
-
-      const activeCount = members.length
-      const paidCount = iurans.filter((i) => i.status === 'paid').length
-
-      const buckets: { label: string; masuk: number; keluar: number }[] = []
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date()
-        d.setDate(1)
-        d.setMonth(d.getMonth() - i)
-        const start = firstDayOfMonth(d.getFullYear(), d.getMonth())
-        buckets.push({ label: formatMonthShort(d.getMonth()), masuk: 0, keluar: 0 })
-        allTx
-          .filter((t) => t.transaction_date.startsWith(start))
-          .forEach((t) => {
-            if (t.type === 'income') buckets[buckets.length - 1].masuk += t.amount
-            else buckets[buckets.length - 1].keluar += t.amount
-          })
-      }
-
-      setData({ info, balance, monthIn, monthOut, activeCount, paidCount, chart: buckets, recent: recentTx })
+  const periods = last6Months()
+  const chartData = periods.map((p) => {
+    const next = new Date(p.start)
+    next.setMonth(next.getMonth() + 1)
+    const end = next.toISOString().slice(0, 10)
+    const inRange = all.filter((t) => t.transaction_date >= p.start && t.transaction_date < end)
+    return {
+      label: p.label,
+      masuk: inRange.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0),
+      keluar: inRange.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
     }
-    load().catch((e) => setError(e instanceof Error ? e.message : 'Gagal load data'))
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  })
 
-  const iuranPct = useMemo(() => {
-    if (!data || data.activeCount === 0) return 0
-    return Math.round((data.paidCount / data.activeCount) * 100)
-  }, [data])
+  const totalIuran = iurans?.length ?? 0
+  const paidIuran = iurans?.filter((i) => i.status === 'paid').length ?? 0
+  const iuranPct = totalIuran > 0 ? Math.round((paidIuran / totalIuran) * 100) : 0
+  const activeMembers = members?.filter((m) => m.is_active).length ?? 0
 
-  if (error) {
-    return <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
-  }
-  if (!data) return <PageLoader />
+  const recent = [...(transactions ?? [])]
+    .sort((a, b) => (b.transaction_date > a.transaction_date ? 1 : -1))
+    .slice(0, 6)
 
   return (
     <div>
       <PageHeader
         title="Dashboard"
-        subtitle={
-          data.info
-            ? `${data.info.class_name} — ${data.info.academic_year}`
-            : 'Kas kelas'
-        }
+        subtitle={classInfo ? `${classInfo.class_name} · ${classInfo.academic_year}` : undefined}
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Saldo Kas" value={formatIDR(data.balance)} sub="Saldo sekarang" tone="brand" />
-        <StatCard label="Pemasukan Bulan Ini" value={formatIDR(data.monthIn)} sub={formatMonthLabel(new Date().toISOString().slice(0, 10))} tone="emerald" />
-        <StatCard label="Pengeluaran Bulan Ini" value={formatIDR(data.monthOut)} sub={formatMonthLabel(new Date().toISOString().slice(0, 10))} tone="red" />
-        <StatCard label="Siswa Aktif" value={String(data.activeCount)} sub="Anggota kelas" tone="zinc" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatCard label="Saldo Kas" value={formatRupiah(balance)} tone="maroon" />
+        <StatCard label="Pemasukan Bulan Ini" value={formatRupiah(incomeMonth)} tone="green" />
+        <StatCard label="Pengeluaran Bulan Ini" value={formatRupiah(expenseMonth)} tone="red" />
+        <StatCard label="Anggota Aktif" value={String(activeMembers)} tone="zinc" />
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader title="Pemasukan vs Pengeluaran" subtitle="6 bulan kebelakang" />
+      <div className="mt-5 grid gap-5 md:grid-cols-3">
+        <Card className="md:col-span-2">
+          <CardHeader title="Tren Keuangan 6 Bulan" subtitle="Pemasukan dan pengeluaran per bulan" />
           <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.chart} barGap={4}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" />
-                  <XAxis dataKey="label" tick={{ fontSize: 12 }} stroke="#a1a1aa" />
-                  <YAxis
-                    tick={{ fontSize: 11 }}
-                    stroke="#a1a1aa"
-                    tickFormatter={(v) => compactIDR(Number(v))}
-                    width={48}
-                  />
-                  <Tooltip formatter={(v) => formatIDR(Number(v))} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="masuk" name="Pemasukan" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                  <Bar dataKey="keluar" name="Pengeluaran" fill="#d94a5d" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <ChartWrapper data={chartData} />
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader
-            title="Iuran Bulan Ini"
-            subtitle={formatMonthLabel(new Date().toISOString().slice(0, 10))}
-            action={
-              isBendahara ? (
-                <Link href="/iuran" className="text-xs font-medium text-brand-600 hover:underline">
-                  Kelola
-                </Link>
-              ) : undefined
-            }
-          />
+          <CardHeader title="Progres Iuran" subtitle={`Bulan ${new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(now)}`} />
           <CardContent>
-            <p className="text-3xl font-bold text-zinc-900">
-              {data.paidCount}
-              <span className="text-base font-medium text-zinc-400"> / {data.activeCount} siswa</span>
-            </p>
-            <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-zinc-100">
-              <div className="h-full rounded-full bg-brand-500 transition-all"
+            <div className="mb-2 flex items-end justify-between">
+              <span className="text-2xl font-semibold text-ink">{iuranPct}%</span>
+              <span className="text-sm text-zinc-500">
+                {paidIuran}/{totalIuran} lunas
+              </span>
+            </div>
+            <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-200">
+              <div
+                className="h-full rounded-full bg-green-600 transition-all"
                 style={{ width: `${iuranPct}%` }}
               />
             </div>
-            <p className="mt-2 text-xs text-zinc-400">{iuranPct}% sudah lunas</p>
+            {iuranPct === 0 ? (
+              <p className="mt-3 text-sm text-zinc-500">
+                Belum ada iuran dicatat. Mulai dari halaman Iuran.
+              </p>
+            ) : null}
           </CardContent>
         </Card>
       </div>
 
-      <Card className="mt-6">
+      <Card className="mt-5">
         <CardHeader
           title="Transaksi Terbaru"
           action={
-            isBendahara ? (
-              <Link href="/transactions" className="text-xs font-medium text-brand-600 hover:underline">
-                Lihat semua
-              </Link>
-            ) : undefined
+            <Link
+              href="/transactions"
+              className="text-sm font-medium text-maroon-700 hover:underline"
+            >
+              Lihat semua
+            </Link>
           }
         />
-        {data.recent.length === 0 ? (
-          <CardContent>
-            <p className="py-6 text-center text-sm text-zinc-400">Belum ada transaksi nih.</p>
-          </CardContent>
-        ) : (
-          <ul className="divide-y divide-zinc-100">
-            {data.recent.map((t) => (
-              <li key={t.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-zinc-800">
-                    {t.description || t.categories?.name || 'Transaksi'}
-                  </p>
-                  <p className="text-xs text-zinc-400">
-                    {t.categories?.name} · {t.transaction_date}
-                  </p>
-                </div>
-                <span
-                  className={`shrink-0 text-sm font-semibold ${
-                    t.type === 'income' ? 'text-emerald-600' : 'text-red-600'
-                  }`}
-                >
-                  {t.type === 'income' ? '+' : '−'} {formatIDR(t.amount)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <CardContent className="p-0">
+          {recent.length === 0 ? (
+            <EmptyState
+              title="Belum ada transaksi"
+              description="Catat pemasukan atau pengeluaran pertama di halaman Transaksi."
+            />
+          ) : (
+            <ul className="divide-y divide-zinc-100">
+              {recent.map((t) => (
+                <li key={t.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-ink">{t.description || 'Transaksi'}</p>
+                    <p className="text-xs text-zinc-500">{t.transaction_date}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Badge variant={t.type === 'income' ? 'green' : 'maroon'}>
+                      {t.type === 'income' ? 'Masuk' : 'Keluar'}
+                    </Badge>
+                    <span
+                      className={`text-sm font-semibold ${
+                        t.type === 'income' ? 'text-green-700' : 'text-maroon-700'
+                      }`}
+                    >
+                      {t.type === 'income' ? '+' : '-'}
+                      {formatRupiah(t.amount)}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
       </Card>
     </div>
+  )
+}
+
+function StatCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: string
+  tone: 'maroon' | 'green' | 'red' | 'zinc'
+}) {
+  const tones: Record<string, string> = {
+    maroon: 'text-maroon-700',
+    green: 'text-green-600',
+    red: 'text-red-700',
+    zinc: 'text-zinc-800',
+  }
+  return (
+    <Card>
+      <CardContent className="px-4 py-4">
+        <p className="text-xs text-zinc-500">{label}</p>
+        <p className={`mt-1 truncate font-display text-lg font-semibold md:text-xl ${tones[tone]}`}>
+          {value}
+        </p>
+      </CardContent>
+    </Card>
   )
 }
