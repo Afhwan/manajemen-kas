@@ -1,8 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const BENDARA_EDIT_PATHS = ['/members', '/transactions', '/iuran', '/settings']
 const SUPERADMIN_ONLY_PATHS = ['/pengguna']
+const PUBLIC_PATHS = ['/login', '/kas']
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -31,41 +31,28 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const pathname = request.nextUrl.pathname
-  const isLoginPage = pathname.startsWith('/login')
+  const isPublicPath = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
 
-  if (!user && !isLoginPage) {
+  if (!user && !isPublicPath) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  if (user && isLoginPage) {
+  if (user && pathname.startsWith('/login')) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
   }
 
-  if (user && !isLoginPage) {
+  if (user && !isPublicPath) {
     try {
       const { data: profile } = await supabase.rpc('get_app_user', {
         p_uid: user.id,
       })
 
       const role = (profile as { role?: string } | null)?.role ?? null
-      const isWalikelas = role === 'walikelas'
       const isBendahara = role === 'bendahara'
-
-      // Walikelas hanya Dashboard + Laporan.
-      if (isWalikelas) {
-        const isForbidden = [...BENDARA_EDIT_PATHS, ...SUPERADMIN_ONLY_PATHS].some((p) =>
-          pathname.startsWith(p)
-        )
-        if (isForbidden) {
-          const url = request.nextUrl.clone()
-          url.pathname = '/dashboard'
-          return NextResponse.redirect(url)
-        }
-      }
 
       // Bendahara tidak boleh akses Kelola Pengguna.
       if (isBendahara && SUPERADMIN_ONLY_PATHS.some((p) => pathname.startsWith(p))) {

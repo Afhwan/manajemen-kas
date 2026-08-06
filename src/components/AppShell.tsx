@@ -30,7 +30,6 @@ const SUPERADMIN_ITEMS: NavItem[] = [
 
 function navItemsFor(role: UserRole): NavItem[] {
   if (role === 'superadmin') return SUPERADMIN_ITEMS
-  if (role === 'walikelas') return ALL_ITEMS.filter((i) => i.href !== '/members' && i.href !== '/transactions' && i.href !== '/iuran' && i.href !== '/settings')
   return ALL_ITEMS
 }
 
@@ -80,6 +79,9 @@ export function AppShell({
         <div className="border-t border-zinc-200 px-5 py-4">
           <p className="text-sm font-medium text-ink">{username}</p>
           <p className="text-xs capitalize text-zinc-500">{role}</p>
+          <Link href="/kas" className="mt-2 block text-xs text-maroon-700 hover:underline">
+            Kas Publik
+          </Link>
           {canEdit ? (
             <Link
               href="/settings"

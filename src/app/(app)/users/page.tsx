@@ -30,7 +30,6 @@ interface UserRow {
 
 const roleLabels: Record<UserRole, string> = {
   bendahara: 'Bendahara',
-  walikelas: 'Wali Kelas',
   superadmin: 'Superadmin',
 }
 
@@ -168,7 +167,7 @@ export default function UsersPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge
-                        variant={u.role === 'superadmin' ? 'maroon' : u.role === 'walikelas' ? 'gold' : 'green'}
+                        variant={u.role === 'superadmin' ? 'maroon' : 'green'}
                       >
                         {roleLabels[u.role]}
                       </Badge>
@@ -181,7 +180,6 @@ export default function UsersPage() {
                       className="w-auto"
                     >
                       <option value="bendahara">Bendahara</option>
-                      <option value="walikelas">Wali Kelas</option>
                       <option value="superadmin">Superadmin</option>
                     </Select>
                     <Button variant="outline" size="sm" onClick={() => setResetTarget(u)}>
@@ -214,7 +212,6 @@ export default function UsersPage() {
           <Field label="Peran">
             <Select name="role" defaultValue="bendahara">
               <option value="bendahara">Bendahara</option>
-              <option value="walikelas">Wali Kelas</option>
               <option value="superadmin">Superadmin</option>
             </Select>
           </Field>

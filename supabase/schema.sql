@@ -66,9 +66,14 @@ create table if not exists public.app_users (
   id         uuid primary key references auth.users(id) on delete cascade,
   username   text not null unique check (username = lower(username)),
   email      text not null unique,
-  role       text not null default 'bendahara' check (role in ('bendahara','walikelas','superadmin')),
+  role       text not null default 'bendahara',
   created_at timestamptz not null default now()
 );
+
+-- Ubah/muat ulang constraint role agar hanya menerima bendahara & superadmin (idempotent).
+alter table public.app_users drop constraint if exists app_users_role_check;
+alter table public.app_users add constraint app_users_role_check
+  check (role in ('bendahara', 'superadmin'));
 
 -- ---------- TRIGGER: USERNAME OTOMATIS DARI EMAIL ----------
 
@@ -122,19 +127,6 @@ as $$
   )
 $$;
 
-create or replace function public.is_walikelas()
-returns boolean
-language sql
-security definer
-stable
-set search_path = public
-as $$
-  select exists (
-    select 1 from public.app_users
-    where id = auth.uid() and role = 'walikelas'
-  )
-$$;
-
 create or replace function public.is_superadmin()
 returns boolean
 language sql
@@ -172,11 +164,42 @@ as $$
   select email from public.app_users where username = lower(p_username)
 $$;
 
+-- Ringkasan kas untuk halaman publik /kas (tanpa membuka tabel bisnis ke role anon).
+create or replace function public.get_kas_summary()
+returns jsonb
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'class_name',   (select class_name   from public.class_info limit 1),
+    'academic_year',(select academic_year from public.class_info limit 1),
+    'balance', (select coalesce(sum(case when type='income' then amount else -amount end), 0)
+                from public.transactions),
+    'month_income', (select coalesce(sum(amount), 0) from public.transactions
+                     where type='income' and transaction_date >= date_trunc('month', current_date)),
+    'month_expense', (select coalesce(sum(amount), 0) from public.transactions
+                      where type='expense' and transaction_date >= date_trunc('month', current_date)),
+    'iuran_total', (select count(*) from public.iurans
+                    where period = date_trunc('month', current_date)::date),
+    'iuran_paid', (select count(*) from public.iurans
+                   where period = date_trunc('month', current_date)::date and status='paid'),
+    'recent', (select jsonb_agg(jsonb_build_object(
+                  'date', t.transaction_date, 'type', t.type, 'amount', t.amount,
+                  'description', t.description, 'category', c.name)
+                order by t.transaction_date desc, t.created_at desc
+                limit 8)
+               from public.transactions t
+               left join public.categories c on c.id = t.category_id)
+  )
+$$;
+
 grant execute on function public.is_bendahara() to authenticated;
-grant execute on function public.is_walikelas() to authenticated;
 grant execute on function public.is_superadmin() to authenticated;
 grant execute on function public.get_app_user(uuid) to authenticated;
 grant execute on function public.get_email_by_username(text) to anon, authenticated;
+grant execute on function public.get_kas_summary() to anon, authenticated;
 
 -- ---------- ROW LEVEL SECURITY ----------
 
@@ -190,7 +213,6 @@ alter table public.app_users    enable row level security;
 -- class_info
 drop policy if exists "bendahara write class_info" on public.class_info;
 drop policy if exists "superadmin read class_info" on public.class_info;
-drop policy if exists "walikelas read class_info" on public.class_info;
 create policy "bendahara write class_info" on public.class_info
   for all to authenticated
   using (public.is_bendahara())
@@ -198,14 +220,10 @@ create policy "bendahara write class_info" on public.class_info
 create policy "superadmin read class_info" on public.class_info
   for select to authenticated
   using (public.is_superadmin());
-create policy "walikelas read class_info" on public.class_info
-  for select to authenticated
-  using (public.is_walikelas());
 
 -- members
 drop policy if exists "bendahara write members" on public.members;
 drop policy if exists "superadmin read members" on public.members;
-drop policy if exists "walikelas read members" on public.members;
 create policy "bendahara write members" on public.members
   for all to authenticated
   using (public.is_bendahara())
@@ -213,14 +231,10 @@ create policy "bendahara write members" on public.members
 create policy "superadmin read members" on public.members
   for select to authenticated
   using (public.is_superadmin());
-create policy "walikelas read members" on public.members
-  for select to authenticated
-  using (public.is_walikelas());
 
 -- categories
 drop policy if exists "bendahara write categories" on public.categories;
 drop policy if exists "superadmin read categories" on public.categories;
-drop policy if exists "walikelas read categories" on public.categories;
 create policy "bendahara write categories" on public.categories
   for all to authenticated
   using (public.is_bendahara())
@@ -228,14 +242,10 @@ create policy "bendahara write categories" on public.categories
 create policy "superadmin read categories" on public.categories
   for select to authenticated
   using (public.is_superadmin());
-create policy "walikelas read categories" on public.categories
-  for select to authenticated
-  using (public.is_walikelas());
 
 -- transactions
 drop policy if exists "bendahara write transactions" on public.transactions;
 drop policy if exists "superadmin read transactions" on public.transactions;
-drop policy if exists "walikelas read transactions" on public.transactions;
 create policy "bendahara write transactions" on public.transactions
   for all to authenticated
   using (public.is_bendahara())
@@ -243,14 +253,10 @@ create policy "bendahara write transactions" on public.transactions
 create policy "superadmin read transactions" on public.transactions
   for select to authenticated
   using (public.is_superadmin());
-create policy "walikelas read transactions" on public.transactions
-  for select to authenticated
-  using (public.is_walikelas());
 
 -- iurans
 drop policy if exists "bendahara write iurans" on public.iurans;
 drop policy if exists "superadmin read iurans" on public.iurans;
-drop policy if exists "walikelas read iurans" on public.iurans;
 create policy "bendahara write iurans" on public.iurans
   for all to authenticated
   using (public.is_bendahara())
@@ -258,9 +264,6 @@ create policy "bendahara write iurans" on public.iurans
 create policy "superadmin read iurans" on public.iurans
   for select to authenticated
   using (public.is_superadmin());
-create policy "walikelas read iurans" on public.iurans
-  for select to authenticated
-  using (public.is_walikelas());
 
 -- app_users
 drop policy if exists "app_users read own" on public.app_users;
@@ -296,9 +299,7 @@ on conflict (id) do nothing;
 --    - qeida@kas-kelas.test       / qeidudu
 --    - yasmin@kas-kelas.test      / yasminpecintacatboyfemboy
 --    - superadmin@kas-kelas.test  / rezky23310
---    - harry@kas-kelas.test       / harry321
 -- 2. Jalankan di SQL Editor:
 --    update public.app_users set role = 'superadmin' where username = 'superadmin';
---    update public.app_users set role = 'walikelas' where username = 'harry';
 --    (qeida dan yasmin otomatis berperan bendahara oleh trigger.)
 -- ============================================================

@@ -1,6 +1,6 @@
 # Kas Kelas — Manajemen Keuangan Kelas
 
-Aplikasi web untuk mengelola keuangan kelas: iuran bulanan, pencatatan pemasukan dan pengeluaran, serta laporan. Dibangun ulang dari nol dengan tiga peran: **superadmin** (developer), **bendahara** (pengelola keuangan), dan **walikelas** (melihat dashboard dan laporan saja).
+Aplikasi web untuk mengelola keuangan kelas: iuran bulanan, pencatatan pemasukan dan pengeluaran, serta laporan. Dibangun ulang dari nol dengan dua peran: **superadmin** (developer) dan **bendahara** (pengelola keuangan). Ada juga halaman publik **`/kas`** untuk melihat transparansi keuangan kelas tanpa login.
 
 ## Tech Stack
 
@@ -19,13 +19,12 @@ Aplikasi web untuk mengelola keuangan kelas: iuran bulanan, pencatatan pemasukan
 | `qeida` | `qeidudu` | Bendahara |
 | `yasmin` | `yasminpecintacatboyfemboy` | Bendahara |
 | `superadmin` | `rezky23310` | Superadmin |
-| `harry` | `harry321` | Walikelas |
 
 ## Peran dan Hak Akses
 
 - **Superadmin** — khusus developer: kelola pengguna (buat/hapus akun, ubah peran, reset password) dan melihat semua data (read-only).
 - **Bendahara** — pengelola keuangan penuh: anggota, transaksi, iuran, laporan, pengaturan kelas.
-- **Walikelas** — hanya melihat Dashboard dan Laporan. Akses ke halaman lain diarahkan kembali ke Dashboard, dan mutasi data ditolak di server serta di database (RLS).
+- **Halaman publik `/kas`** — siapapun (termasuk tanpa login) bisa melihat ringkasan keuangan kelas: saldo kas, pemasukan/pengeluaran bulan ini, progres iuran, dan 8 transaksi terakhir. Data hanya diambil lewat fungsi `security definer` `get_kas_summary()` — tabel bisnis tetap terlindungi oleh RLS.
 
 ## Setup Database
 
@@ -40,13 +39,13 @@ Aplikasi web untuk mengelola keuangan kelas: iuran bulanan, pencatatan pemasukan
    - `qeida@kas-kelas.test` / `qeidudu`
    - `yasmin@kas-kelas.test` / `yasminpecintacatboyfemboy`
    - `superadmin@kas-kelas.test` / `rezky23310`
-   - `harry@kas-kelas.test` / `harry321`
 5. Set peran di SQL Editor:
    ```sql
    update public.app_users set role = 'superadmin' where username = 'superadmin';
-   update public.app_users set role = 'walikelas' where username = 'harry';
    ```
    (Akun `qeida` dan `yasmin` sudah berperan bendahara secara otomatis oleh trigger, tidak perlu di-update.)
+
+Setelah setup, halaman publik **`/kas`** bisa langsung diakses tanpa login (data lewat `get_kas_summary()`).
 
 ## Konfigurasi Lingkungan
 
@@ -78,6 +77,7 @@ npm run lint     # ESLint
 src/
 ├── app/
 │   ├── login/page.tsx
+│   ├── kas/page.tsx                # halaman publik transparansi (tanpa login)
 │   ├── (app)/layout.tsx            # shell: sidebar desktop + bottom nav mobile
 │   │   ├── dashboard/page.tsx
 │   │   ├── members/page.tsx
@@ -101,9 +101,9 @@ src/
 
 ## Keamanan (Tiga Lapis)
 
-1. **Proxy** — memastikan pengguna login dan mengarahkan walikelas ke halaman yang diizinkan.
+1. **Proxy** — memastikan pengguna login untuk halaman aplikasi (kecuali halaman publik `/login` dan `/kas`) serta mengarahkan bendahara menjauh dari `/pengguna`.
 2. **Guard server action** — `requireBendahara()` dan `requireSuperadmin()` di setiap mutasi.
-3. **RLS database** — semua pengecekan peran memakai fungsi `security definer` (`is_bendahara`, `is_walikelas`, `is_superadmin`) sehingga tidak bergantung pada policy `app_users` dan tidak menimbulkan error permission.
+3. **RLS database** — semua pengecekan peran memakai fungsi `security definer` (`is_bendahara`, `is_superadmin`, `get_kas_summary`) sehingga tidak bergantung pada policy `app_users` dan tidak menimbulkan error permission. Halaman publik `/kas` hanya membaca lewat `get_kas_summary()`.
 
 ## Lisensi
 

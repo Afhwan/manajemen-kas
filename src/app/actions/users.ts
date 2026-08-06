@@ -46,7 +46,7 @@ export async function createUser(formData: FormData) {
     return { error: 'Username hanya boleh huruf kecil, angka, titik, garis bawah, dan strip.' }
   }
   if (password.length < 6) return { error: 'Password minimal 6 karakter.' }
-  if (role !== 'bendahara' && role !== 'walikelas' && role !== 'superadmin') {
+  if (role !== 'bendahara' && role !== 'superadmin') {
     return { error: 'Role tidak valid.' }
   }
 
@@ -77,7 +77,7 @@ export async function updateUserRole(userId: string, role: string) {
   const guard = await requireSuperadmin()
   if (guard) return guard
 
-  if (role !== 'bendahara' && role !== 'walikelas' && role !== 'superadmin') {
+  if (role !== 'bendahara' && role !== 'superadmin') {
     return { error: 'Role tidak valid.' }
   }
 

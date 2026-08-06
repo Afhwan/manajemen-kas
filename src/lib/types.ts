@@ -1,7 +1,7 @@
 export type CategoryType = 'income' | 'expense'
 export type TransactionType = 'income' | 'expense'
 export type IuranStatus = 'paid' | 'unpaid'
-export type UserRole = 'bendahara' | 'walikelas' | 'superadmin'
+export type UserRole = 'bendahara' | 'superadmin'
 
 export interface AppUser {
   id: string
