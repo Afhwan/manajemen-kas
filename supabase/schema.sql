@@ -1,8 +1,27 @@
 -- ============================================================
 -- Kas Kelas — Skema Database (tunggal, idempotent)
 -- Jalankan seluruh file ini di Supabase SQL Editor.
--- Asumsi: schema public sudah di-reset (drop schema public cascade; create schema public;)
+--
+-- Reset dulu bila perlu (menghapus semua data lama):
+--   drop schema public cascade;
+--   create schema public;
+--
+-- PENTING: setelah `drop schema public cascade`, schema public yang
+-- baru dibuat TIDAK lagi memiliki hak akses untuk role anon /
+-- authenticated / service_role (mengakibatkan "permission denied for
+-- schema public"). Blok grant di bawah memulihkannya, dan seluruh
+-- objek (tabel, fungsi, policy RLS, seed) dibuat ulang setelahnya.
 -- ============================================================
+
+-- ---------- HAK AKSES SCHEMA (wajib setelah reset) ----------
+
+grant usage on schema public to anon, authenticated, service_role;
+
+-- Objek yang dibuat SETELAH baris ini otomatis mendapat hak akses
+-- untuk role anon / authenticated / service_role.
+alter default privileges in schema public grant all on tables    to anon, authenticated, service_role;
+alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
 
 -- ---------- TABEL ----------
 
@@ -200,6 +219,12 @@ grant execute on function public.is_superadmin() to authenticated;
 grant execute on function public.get_app_user(uuid) to authenticated;
 grant execute on function public.get_email_by_username(text) to anon, authenticated;
 grant execute on function public.get_kas_summary() to anon, authenticated;
+
+-- Hak akses tabel/sekuens yang mungkin sudah ada (aman dijalankan ulang).
+-- RLS tetap membatasi baris: role anon tidak punya policy select apa pun,
+-- dan role authenticated hanya melihat lewat policy yang didefinisikan.
+grant all on all tables in schema public    to anon, authenticated, service_role;
+grant all on all sequences in schema public to anon, authenticated, service_role;
 
 -- ---------- ROW LEVEL SECURITY ----------
 
