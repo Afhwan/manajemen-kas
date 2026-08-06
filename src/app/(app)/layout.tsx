@@ -4,9 +4,16 @@ import { createClient } from '@/lib/supabase/server'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+
+  let user: { id: string; email?: string | null } | null = null
+  try {
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser()
+    user = authUser
+  } catch {
+    user = null
+  }
 
   if (!user) redirect('/login')
 
