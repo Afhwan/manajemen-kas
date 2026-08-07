@@ -6,19 +6,16 @@
 --   drop schema public cascade;
 --   create schema public;
 --
--- PENTING: setelah `drop schema public cascade`, schema public yang
--- baru dibuat TIDAK lagi memiliki hak akses untuk role anon /
--- authenticated / service_role (mengakibatkan "permission denied for
--- schema public"). Blok grant di bawah memulihkannya, dan seluruh
--- objek (tabel, fungsi, policy RLS, seed) dibuat ulang setelahnya.
+-- PENTING: setelah `drop schema public cascade`, schema public
+-- yang baru dibuat TIDAK lagi memiliki hak akses untuk role
+-- anon/authenticated/service_role. Blok grant di bawah
+-- memulihkannya, lalu seluruh objek dibuat ulang setelahnya.
 -- ============================================================
 
 -- ---------- HAK AKSES SCHEMA (wajib setelah reset) ----------
 
 grant usage on schema public to anon, authenticated, service_role;
 
--- Objek yang dibuat SETELAH baris ini otomatis mendapat hak akses
--- untuk role anon / authenticated / service_role.
 alter default privileges in schema public grant all on tables    to anon, authenticated, service_role;
 alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
 alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
@@ -206,11 +203,12 @@ as $$
                    where period = date_trunc('month', current_date)::date and status='paid'),
     'recent', (select jsonb_agg(jsonb_build_object(
                   'date', t.transaction_date, 'type', t.type, 'amount', t.amount,
-                  'description', t.description, 'category', c.name)
-                order by t.transaction_date desc, t.created_at desc
-                limit 8)
-               from public.transactions t
-               left join public.categories c on c.id = t.category_id)
+                  'description', t.description, 'category', c.name))
+                from (select transaction_date, type, amount, description, category_id
+                      from public.transactions
+                      order by transaction_date desc, created_at desc
+                      limit 8) t
+                left join public.categories c on c.id = t.category_id)
   )
 $$;
 
