@@ -4,21 +4,21 @@ Aplikasi web untuk mengelola keuangan kelas: iuran bulanan, pencatatan pemasukan
 
 ## Tech Stack
 
-| Komponen | Teknologi |
-|---|---|
-| Frontend | Next.js 16 (App Router) + TypeScript + Tailwind CSS v4 |
-| Database | Supabase (PostgreSQL) |
-| Auth | Supabase Auth (email/password) + login username |
-| Penyimpanan gambar | Cloudinary (free plan) |
-| Deployment | Vercel |
+| Komponen           | Teknologi                                              |
+| ------------------ | ------------------------------------------------------ |
+| Frontend           | Next.js 16 (App Router) + TypeScript + Tailwind CSS v4 |
+| Database           | Supabase (PostgreSQL)                                  |
+| Auth               | Supabase Auth (email/password) + login username        |
+| Penyimpanan gambar | Cloudinary (free plan)                                 |
+| Deployment         | Vercel                                                 |
 
 ## Akun Awal
 
-| Username | Password | Peran |
-|---|---|---|
-| `qeida` | `qeidudu` | Bendahara |
-| `yasmin` | `yasminpecintacatboyfemboy` | Bendahara |
-| `superadmin` | `rezky23310` | Superadmin |
+| Username     | Password                    | Peran      |
+| ------------ | --------------------------- | ---------- |
+| `qeida`      | `qeidudu`                   | Bendahara  |
+| `yasmin`     | `yasminpecintacatboyfemboy` | Bendahara  |
+| `superadmin` | `rezky23310`                | Superadmin |
 
 ## Peran dan Hak Akses
 
