@@ -1,4 +1,4 @@
-# Kas Kelas — Manajemen Keuangan Kelas
+# Manajemen Kas XI Sija — Manajemen Keuangan Kelas
 
 Aplikasi web untuk mengelola keuangan kelas: iuran bulanan, pencatatan pemasukan dan pengeluaran, serta laporan. Dibangun ulang dari nol dengan dua peran: **superadmin** (developer) dan **bendahara** (pengelola keuangan). Ada juga halaman publik **`/kas`** untuk melihat transparansi keuangan kelas tanpa login.
 

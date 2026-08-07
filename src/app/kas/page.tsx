@@ -39,7 +39,7 @@ export default async function PublicKasPage() {
   }
 
   const summary = (data ?? null) as KasSummary | null
-  const className = summary?.class_name ?? 'Kas Kelas'
+  const className = summary?.class_name ?? 'Manajemen Kas XI Sija'
   const academicYear = summary?.academic_year
   const balance = summary?.balance ?? 0
   const monthIncome = summary?.month_income ?? 0
@@ -54,7 +54,7 @@ export default async function PublicKasPage() {
       <div className="mx-auto w-full max-w-2xl">
         <header className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.2em] text-maroon-600">Buku Kas Kelas</p>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-maroon-600">Manajemen Kas XI Sija</p>
             <h1 className="mt-1 font-display text-2xl font-semibold text-ink md:text-3xl">
               {className}
             </h1>

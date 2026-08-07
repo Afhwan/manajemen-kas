@@ -28,7 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const className = classInfo?.class_name ? String(classInfo.class_name) : ''
   const academicYear = classInfo?.academic_year ? String(classInfo.academic_year) : ''
-  const classLabel = className || academicYear ? `${className} · ${academicYear}` : 'Buku Kas Kelas'
+  const classLabel = className || academicYear ? `${className} · ${academicYear}` : 'Manajemen Kas XI Sija'
 
   return (
     <AppShell

@@ -10,7 +10,7 @@ const fraunces = Fraunces({
 })
 
 export const metadata: Metadata = {
-  title: 'Kas Kelas',
+  title: 'Manajemen Kas XI Sija',
   description: 'Aplikasi pengelolaan keuangan kelas',
 }
 

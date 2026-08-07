@@ -54,7 +54,7 @@ export function AppShell({
       {/* Sidebar desktop */}
       <aside className="no-print fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-zinc-200 bg-paper-deep/80 md:flex">
         <div className="border-b border-zinc-200 px-5 py-5">
-          <p className="font-display text-xl font-semibold text-maroon-700">Kas Kelas</p>
+          <p className="font-display text-xl font-semibold text-maroon-700">Manajemen Kas XI Sija</p>
           <p className="mt-1 text-xs text-zinc-500">{classInfo}</p>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">

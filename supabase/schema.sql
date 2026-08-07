@@ -1,5 +1,5 @@
 -- ============================================================
--- Kas Kelas — Skema Database (tunggal, idempotent)
+-- Manajemen Kas XI Sija — Skema Database (tunggal, idempotent)
 -- Jalankan seluruh file ini di Supabase SQL Editor.
 --
 -- Reset dulu bila perlu (menghapus semua data lama):

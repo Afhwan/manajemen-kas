@@ -25,8 +25,8 @@ export default function LoginPage() {
     <div className="flex min-h-dvh items-center justify-center p-4">
       <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-zinc-200 bg-white/80 shadow-sm">
         <div className="border-b-4 border-maroon-600 bg-maroon-700 px-6 py-8 text-paper">
-          <p className="text-xs uppercase tracking-widest text-maroon-200">Buku Kas Kelas</p>
-          <h1 className="mt-2 font-display text-3xl font-semibold">Kas Kelas</h1>
+          <p className="text-xs uppercase tracking-widest text-maroon-200">Manajemen Kas XI Sija</p>
+          <h1 className="mt-2 font-display text-3xl font-semibold">Manajemen Kas XI Sija</h1>
           <p className="mt-2 text-sm text-maroon-100">
             Catat pemasukan dan pengeluaran keuangan kelas dengan rapi.
           </p>
